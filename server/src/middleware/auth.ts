@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validateSession, isValidTokenFormat } from '../services/auth/sessionService';
+import { validateSession, isValidTokenFormat, isSlidingExpirationEnabled, refreshSession } from '../services/auth/sessionService';
 
 // Extend Express Request type for user context (AC #6)
 declare global {
@@ -33,11 +33,16 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   // Fast-fail for malformed tokens before DB query
   if (!isValidTokenFormat(token)) {
-    res.clearCookie('session');
+    res.clearCookie('session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
     return res.status(401).json({
       error: {
         code: 'SESSION_EXPIRED',
-        message: 'Session expired or invalid',
+        message: 'Session expired. Please log in again.',
       },
     });
   }
@@ -45,12 +50,29 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const sessionData = await validateSession(token);
 
   if (!sessionData) {
-    res.clearCookie('session');
+    // Clear invalid/expired cookie (AC #4, #5 from Story 1.5)
+    res.clearCookie('session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
     return res.status(401).json({
       error: {
         code: 'SESSION_EXPIRED',
-        message: 'Session expired or invalid',
+        message: 'Session expired. Please log in again.',
       },
+    });
+  }
+
+  // Sliding expiration: extend session on activity (Task 5.1, 5.2)
+  // Token format already validated above via isValidTokenFormat check
+  if (isSlidingExpirationEnabled()) {
+    // Fire-and-forget - don't block the request for refresh
+    // Note: Under high load, consider adding rate limiting or debouncing
+    // to prevent excessive DB writes (e.g., refresh max once per minute)
+    refreshSession(token).catch(() => {
+      // Silently ignore refresh errors - session is still valid
     });
   }
 

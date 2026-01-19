@@ -58,7 +58,7 @@ describe('Auth Routes - /me Endpoint (Story 1.4)', () => {
       expect(response.body.error.message).toBe('Authentication required');
     });
 
-    it('should return 401 when session is expired or invalid', async () => {
+    it('should return 401 when session is expired or invalid (AC #4, #5 Story 1.5)', async () => {
       vi.mocked(sessionService.validateSession).mockResolvedValue(null);
 
       const response = await request(app)
@@ -67,7 +67,7 @@ describe('Auth Routes - /me Endpoint (Story 1.4)', () => {
         .expect(401);
 
       expect(response.body.error.code).toBe('SESSION_EXPIRED');
-      expect(response.body.error.message).toBe('Session expired or invalid');
+      expect(response.body.error.message).toBe('Session expired. Please log in again.');
     });
 
     it('should NOT include password_hash in response', async () => {

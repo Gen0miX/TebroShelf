@@ -86,7 +86,7 @@ describe('User Service', () => {
       });
       (db.select as any).mockReturnValue({ from: fromMock });
 
-      const { findUserById } = await import('./userService');
+      const { findUserById } = await import('./userService.js');
       const result = await findUserById(42);
       expect(result).toEqual(mockUser);
     });
@@ -97,7 +97,7 @@ describe('User Service', () => {
       });
       (db.select as any).mockReturnValue({ from: fromMock });
 
-      const { findUserById } = await import('./userService');
+      const { findUserById } = await import('./userService.js');
       const result = await findUserById(999);
       expect(result).toBeNull();
     });

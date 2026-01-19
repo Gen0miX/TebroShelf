@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { registerUserSchema, loginSchema } from '../utils/validators';
 import { createUser, findUserByUsername } from '../services/auth/userService';
 import { login } from '../services/auth/authService';
+import { deleteSession, validateSession, isValidTokenFormat } from '../services/auth/sessionService';
 import { requireAuth } from '../middleware/auth';
 import { logger } from '../utils/logger';
 
@@ -115,6 +116,46 @@ router.get('/me', requireAuth, (req, res) => {
   return res.json({
     data: req.user,
   });
+});
+
+// POST /api/v1/auth/logout - Logout user and invalidate session (Story 1.5, AC #1, #2, #3)
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.cookies?.session;
+    let userId: number | undefined;
+
+    // Delete session from database if token exists and is valid format (AC #1)
+    // Validate token format before DB query (defense in depth)
+    if (token && isValidTokenFormat(token)) {
+      // Get userId for logging before deleting session
+      const sessionData = await validateSession(token);
+      if (sessionData) {
+        userId = sessionData.user.id;
+      }
+      await deleteSession(token);
+      logger.info('User logged out', { context: 'auth', userId });
+    }
+
+    // Always clear cookie, even if no session found - idempotent (AC #2)
+    res.clearCookie('session', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+
+    return res.json({
+      data: { message: 'Logged out successfully' },
+    });
+  } catch (error) {
+    logger.error('Logout failed', { context: 'auth', error: error as Error });
+    return res.status(500).json({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An unexpected error occurred',
+      },
+    });
+  }
 });
 
 export default router;

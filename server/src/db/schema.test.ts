@@ -125,8 +125,7 @@ describe('User Schema (Story 1.2)', () => {
           .values({
             username: 'invalid_role_user',
             password_hash: 'hash',
-            // @ts-expect-error - Testing runtime constraint
-            role: 'superuser',
+            role: 'superuser' as any, // Testing runtime constraint with invalid role
             created_at: now,
             updated_at: now,
           })

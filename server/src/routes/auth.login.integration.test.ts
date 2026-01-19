@@ -75,7 +75,7 @@ describe('Auth Login - Integration Tests (Story 1.4)', () => {
       const cookies = response.headers['set-cookie'];
       expect(cookies).toBeDefined();
 
-      const sessionCookie = cookies.find((c: string) => c.startsWith('session='));
+      const sessionCookie = (cookies as unknown as string[]).find((c: string) => c.startsWith('session='));
       expect(sessionCookie).toBeDefined();
       expect(sessionCookie).toContain('HttpOnly');
       expect(sessionCookie).toContain('SameSite=Lax');

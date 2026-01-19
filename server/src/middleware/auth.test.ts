@@ -81,7 +81,7 @@ describe('Auth Middleware (Story 1.4)', () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should return 401 when session is expired or invalid', async () => {
+    it('should return 401 when session is expired or invalid (AC #4, #5)', async () => {
       mockRequest.cookies = { session: 'expired_token_here'.padEnd(64, '0') };
       vi.mocked(sessionService.validateSession).mockResolvedValue(null);
 
@@ -95,14 +95,19 @@ describe('Auth Middleware (Story 1.4)', () => {
       expect(mockResponse.json).toHaveBeenCalledWith({
         error: {
           code: 'SESSION_EXPIRED',
-          message: 'Session expired or invalid',
+          message: 'Session expired. Please log in again.',
         },
       });
-      expect(mockResponse.clearCookie).toHaveBeenCalledWith('session');
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('session', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+      });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should clear cookie on invalid session', async () => {
+    it('should clear cookie with correct options on invalid session', async () => {
       mockRequest.cookies = { session: 'invalid_session'.padEnd(64, '0') };
       vi.mocked(sessionService.validateSession).mockResolvedValue(null);
 
@@ -112,7 +117,12 @@ describe('Auth Middleware (Story 1.4)', () => {
         mockNext
       );
 
-      expect(mockResponse.clearCookie).toHaveBeenCalledWith('session');
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('session', {
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax',
+        path: '/',
+      });
     });
 
     it('should validate session using sessionService', async () => {
