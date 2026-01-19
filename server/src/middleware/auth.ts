@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { validateSession } from '../services/auth/sessionService';
+import { validateSession, isValidTokenFormat } from '../services/auth/sessionService';
 
 // Extend Express Request type for user context (AC #6)
 declare global {
@@ -27,6 +27,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
       error: {
         code: 'UNAUTHORIZED',
         message: 'Authentication required',
+      },
+    });
+  }
+
+  // Fast-fail for malformed tokens before DB query
+  if (!isValidTokenFormat(token)) {
+    res.clearCookie('session');
+    return res.status(401).json({
+      error: {
+        code: 'SESSION_EXPIRED',
+        message: 'Session expired or invalid',
       },
     });
   }

@@ -8,6 +8,10 @@ vi.mock('../services/auth/sessionService');
 describe('Auth Routes - /me Endpoint (Story 1.4)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Mock isValidTokenFormat to return true for valid hex tokens
+    vi.mocked(sessionService.isValidTokenFormat).mockImplementation((token: string) => {
+      return /^[a-f0-9]{64}$/.test(token);
+    });
   });
 
   afterEach(() => {
