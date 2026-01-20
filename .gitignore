@@ -1,5 +1,6 @@
 _bmad/
 _bmad-output/
+.opencode/
 .agent/
 .agentvibes/
 .claude/
@@ -16,3 +17,4 @@ coverage
 *.log
 npm-debug.log*
 .idea
+nul

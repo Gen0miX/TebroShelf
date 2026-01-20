@@ -4,11 +4,13 @@ import { createUser, findUserByUsername } from '../services/auth/userService';
 import { login } from '../services/auth/authService';
 import { deleteSession, validateSession, isValidTokenFormat } from '../services/auth/sessionService';
 import { requireAuth } from '../middleware/auth';
+import { requireAdmin } from '../middleware/roleGuard';
 import { logger } from '../utils/logger';
 
 const router = Router();
 
-router.post('/register', async (req, res) => {
+// POST /api/v1/auth/register - Admin-only: Create new user (Story 1.6, Task 5)
+router.post('/register', requireAuth, requireAdmin, async (req, res) => {
   try {
     // 1. Validate request body
     const validation = registerUserSchema.safeParse(req.body);

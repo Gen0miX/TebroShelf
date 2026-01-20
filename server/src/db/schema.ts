@@ -36,3 +36,30 @@ export const sessions = sqliteTable('sessions', {
 // Session types
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+
+// Books table for content management (Story 1.7 - visibility, expanded in Epic 2)
+export const books = sqliteTable('books', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  title: text('title').notNull(),
+  author: text('author'),
+  file_path: text('file_path').notNull(),
+  file_type: text('file_type', { enum: ['epub', 'cbz', 'cbr'] }).notNull(),
+  content_type: text('content_type', { enum: ['book', 'manga'] }).notNull(),
+  cover_path: text('cover_path'),
+  status: text('status', { enum: ['pending', 'enriched', 'quarantine'] }).notNull().default('pending'),
+  // Visibility for content access control (AC #1, #4) - default 'public'
+  visibility: text('visibility', { enum: ['public', 'private'] }).notNull().default('public'),
+  created_at: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+}, (table) => ({
+  filePathIdx: uniqueIndex('idx_books_file_path').on(table.file_path),
+  visibilityIdx: index('idx_books_visibility').on(table.visibility),
+}));
+
+// Book types
+export type Book = typeof books.$inferSelect;
+export type NewBook = typeof books.$inferInsert;
+export type Visibility = 'public' | 'private';
+export type FileType = 'epub' | 'cbz' | 'cbr';
+export type ContentType = 'book' | 'manga';
+export type BookStatus = 'pending' | 'enriched' | 'quarantine';

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
-import { users, sessions } from './schema';
-import type { User, NewUser, UserRole, Session, NewSession } from './schema';
+import { users, sessions, books } from './schema';
+import type { User, NewUser, UserRole, Session, NewSession, Book, NewBook, Visibility, FileType, ContentType, BookStatus } from './schema';
 
 describe('User Schema (Story 1.2)', () => {
   let sqlite: Database.Database;
@@ -392,6 +392,422 @@ describe('Sessions Schema (Story 1.4)', () => {
       expect(newSession.token).toBeDefined();
       // id should be optional for NewSession
       expect(newSession.id).toBeUndefined();
+    });
+  });
+});
+
+describe('Books Schema (Story 1.7)', () => {
+  let sqlite: Database.Database;
+  let db: ReturnType<typeof drizzle>;
+
+  beforeAll(() => {
+    sqlite = new Database(':memory:');
+    db = drizzle(sqlite, { schema: { users, sessions, books } });
+
+    sqlite.exec(`
+      CREATE TABLE books (
+        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        title TEXT NOT NULL,
+        author TEXT,
+        file_path TEXT NOT NULL,
+        file_type TEXT NOT NULL CHECK(file_type IN ('epub', 'cbz', 'cbr')),
+        content_type TEXT NOT NULL CHECK(content_type IN ('book', 'manga')),
+        cover_path TEXT,
+        status TEXT DEFAULT 'pending' NOT NULL CHECK(status IN ('pending', 'enriched', 'quarantine')),
+        visibility TEXT DEFAULT 'public' NOT NULL CHECK(visibility IN ('public', 'private')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE UNIQUE INDEX idx_books_file_path ON books (file_path);
+      CREATE INDEX idx_books_visibility ON books (visibility);
+    `);
+  });
+
+  afterAll(() => {
+    sqlite.close();
+  });
+
+  describe('AC #1: Visibility column exists with constraint', () => {
+    it('should have visibility column', () => {
+      const tableInfo = sqlite.pragma('table_info(books)') as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+      }>;
+
+      const visibilityCol = tableInfo.find((col) => col.name === 'visibility');
+      expect(visibilityCol).toBeDefined();
+      expect(visibilityCol!.type).toBe('TEXT');
+      expect(visibilityCol!.notnull).toBe(1);
+    });
+
+    it('should accept "public" visibility', () => {
+      const now = new Date();
+      const result = db
+        .insert(books)
+        .values({
+          title: 'Public Book',
+          file_path: '/books/public-book.epub',
+          file_type: 'epub',
+          content_type: 'book',
+          visibility: 'public',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+
+      expect(result!.visibility).toBe('public');
+    });
+
+    it('should accept "private" visibility', () => {
+      const now = new Date();
+      const result = db
+        .insert(books)
+        .values({
+          title: 'Private Book',
+          file_path: '/books/private-book.epub',
+          file_type: 'epub',
+          content_type: 'book',
+          visibility: 'private',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+
+      expect(result!.visibility).toBe('private');
+    });
+
+    it('should reject invalid visibility values', () => {
+      const now = new Date();
+      expect(() => {
+        db.insert(books)
+          .values({
+            title: 'Invalid Visibility Book',
+            file_path: '/books/invalid-vis.epub',
+            file_type: 'epub',
+            content_type: 'book',
+            visibility: 'secret' as any,
+            created_at: now,
+            updated_at: now,
+          })
+          .run();
+      }).toThrow(/CHECK constraint failed/);
+    });
+  });
+
+  describe('AC #4: Default visibility is public', () => {
+    it('should default visibility to public when not specified', () => {
+      const now = new Date();
+      const result = db
+        .insert(books)
+        .values({
+          title: 'Default Visibility Book',
+          file_path: '/books/default-vis.epub',
+          file_type: 'epub',
+          content_type: 'book',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+
+      expect(result!.visibility).toBe('public');
+    });
+  });
+
+  describe('Books table all columns', () => {
+    it('should have all required columns', () => {
+      const tableInfo = sqlite.pragma('table_info(books)') as Array<{
+        name: string;
+        type: string;
+        notnull: number;
+      }>;
+
+      const columnNames = tableInfo.map((col) => col.name);
+      expect(columnNames).toContain('id');
+      expect(columnNames).toContain('title');
+      expect(columnNames).toContain('author');
+      expect(columnNames).toContain('file_path');
+      expect(columnNames).toContain('file_type');
+      expect(columnNames).toContain('content_type');
+      expect(columnNames).toContain('cover_path');
+      expect(columnNames).toContain('status');
+      expect(columnNames).toContain('visibility');
+      expect(columnNames).toContain('created_at');
+      expect(columnNames).toContain('updated_at');
+    });
+
+    it('should insert book with all fields populated', () => {
+      const now = new Date();
+      const result = db
+        .insert(books)
+        .values({
+          title: 'Complete Book',
+          author: 'Test Author',
+          file_path: '/books/complete-book.cbz',
+          file_type: 'cbz',
+          content_type: 'manga',
+          cover_path: '/covers/complete.jpg',
+          status: 'enriched',
+          visibility: 'public',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+
+      expect(result).toBeDefined();
+      expect(result!.id).toBeGreaterThan(0);
+      expect(result!.title).toBe('Complete Book');
+      expect(result!.author).toBe('Test Author');
+      expect(result!.file_path).toBe('/books/complete-book.cbz');
+      expect(result!.file_type).toBe('cbz');
+      expect(result!.content_type).toBe('manga');
+      expect(result!.cover_path).toBe('/covers/complete.jpg');
+      expect(result!.status).toBe('enriched');
+      expect(result!.visibility).toBe('public');
+    });
+  });
+
+  describe('File type constraint', () => {
+    it('should accept epub, cbz, cbr file types', () => {
+      const now = new Date();
+
+      const epub = db
+        .insert(books)
+        .values({
+          title: 'Epub Book',
+          file_path: '/books/test-epub.epub',
+          file_type: 'epub',
+          content_type: 'book',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+      expect(epub!.file_type).toBe('epub');
+
+      const cbz = db
+        .insert(books)
+        .values({
+          title: 'CBZ Manga',
+          file_path: '/books/test-cbz.cbz',
+          file_type: 'cbz',
+          content_type: 'manga',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+      expect(cbz!.file_type).toBe('cbz');
+
+      const cbr = db
+        .insert(books)
+        .values({
+          title: 'CBR Manga',
+          file_path: '/books/test-cbr.cbr',
+          file_type: 'cbr',
+          content_type: 'manga',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+      expect(cbr!.file_type).toBe('cbr');
+    });
+
+    it('should reject invalid file types', () => {
+      const now = new Date();
+      expect(() => {
+        db.insert(books)
+          .values({
+            title: 'Invalid File Type',
+            file_path: '/books/invalid.pdf',
+            file_type: 'pdf' as any,
+            content_type: 'book',
+            created_at: now,
+            updated_at: now,
+          })
+          .run();
+      }).toThrow(/CHECK constraint failed/);
+    });
+  });
+
+  describe('Content type constraint', () => {
+    it('should accept book and manga content types', () => {
+      const now = new Date();
+
+      const book = db
+        .insert(books)
+        .values({
+          title: 'Book Type',
+          file_path: '/books/book-type.epub',
+          file_type: 'epub',
+          content_type: 'book',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+      expect(book!.content_type).toBe('book');
+
+      const manga = db
+        .insert(books)
+        .values({
+          title: 'Manga Type',
+          file_path: '/books/manga-type.cbz',
+          file_type: 'cbz',
+          content_type: 'manga',
+          created_at: now,
+          updated_at: now,
+        })
+        .returning()
+        .get();
+      expect(manga!.content_type).toBe('manga');
+    });
+
+    it('should reject invalid content types', () => {
+      const now = new Date();
+      expect(() => {
+        db.insert(books)
+          .values({
+            title: 'Invalid Content Type',
+            file_path: '/books/invalid-content.epub',
+            file_type: 'epub',
+            content_type: 'comic' as any,
+            created_at: now,
+            updated_at: now,
+          })
+          .run();
+      }).toThrow(/CHECK constraint failed/);
+    });
+  });
+
+  describe('Unique file_path constraint', () => {
+    it('should reject duplicate file paths', () => {
+      const now = new Date();
+      const filePath = '/books/duplicate-path.epub';
+
+      db.insert(books)
+        .values({
+          title: 'First Book',
+          file_path: filePath,
+          file_type: 'epub',
+          content_type: 'book',
+          created_at: now,
+          updated_at: now,
+        })
+        .run();
+
+      expect(() => {
+        db.insert(books)
+          .values({
+            title: 'Duplicate Book',
+            file_path: filePath,
+            file_type: 'epub',
+            content_type: 'book',
+            created_at: now,
+            updated_at: now,
+          })
+          .run();
+      }).toThrow(/UNIQUE constraint failed/);
+    });
+  });
+
+  describe('Books indexes', () => {
+    it('should have idx_books_file_path unique index', () => {
+      const indexes = sqlite.pragma('index_list(books)') as Array<{
+        name: string;
+        unique: number;
+      }>;
+
+      const filePathIndex = indexes.find((idx) => idx.name === 'idx_books_file_path');
+      expect(filePathIndex).toBeDefined();
+      expect(filePathIndex!.unique).toBe(1);
+    });
+
+    it('should have idx_books_visibility index', () => {
+      const indexes = sqlite.pragma('index_list(books)') as Array<{
+        name: string;
+        unique: number;
+      }>;
+
+      const visibilityIndex = indexes.find((idx) => idx.name === 'idx_books_visibility');
+      expect(visibilityIndex).toBeDefined();
+    });
+  });
+
+  describe('TypeScript type inference for Book', () => {
+    it('should export Book type with correct shape', () => {
+      const book: Book = {
+        id: 1,
+        title: 'Test Book',
+        author: 'Author',
+        file_path: '/path/to/book.epub',
+        file_type: 'epub',
+        content_type: 'book',
+        cover_path: '/covers/test.jpg',
+        status: 'pending',
+        visibility: 'public',
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      expect(book.id).toBeDefined();
+      expect(book.title).toBeDefined();
+      expect(book.visibility).toBeDefined();
+    });
+
+    it('should export NewBook type for inserts', () => {
+      const newBook: NewBook = {
+        title: 'New Book',
+        file_path: '/path/new.epub',
+        file_type: 'epub',
+        content_type: 'book',
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      expect(newBook.title).toBeDefined();
+      expect(newBook.id).toBeUndefined();
+    });
+
+    it('should export Visibility type', () => {
+      const publicVis: Visibility = 'public';
+      const privateVis: Visibility = 'private';
+
+      expect(publicVis).toBe('public');
+      expect(privateVis).toBe('private');
+    });
+
+    it('should export FileType type', () => {
+      const epub: FileType = 'epub';
+      const cbz: FileType = 'cbz';
+      const cbr: FileType = 'cbr';
+
+      expect(epub).toBe('epub');
+      expect(cbz).toBe('cbz');
+      expect(cbr).toBe('cbr');
+    });
+
+    it('should export ContentType type', () => {
+      const book: ContentType = 'book';
+      const manga: ContentType = 'manga';
+
+      expect(book).toBe('book');
+      expect(manga).toBe('manga');
+    });
+
+    it('should export BookStatus type', () => {
+      const pending: BookStatus = 'pending';
+      const enriched: BookStatus = 'enriched';
+      const quarantine: BookStatus = 'quarantine';
+
+      expect(pending).toBe('pending');
+      expect(enriched).toBe('enriched');
+      expect(quarantine).toBe('quarantine');
     });
   });
 });

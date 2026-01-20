@@ -1,7 +1,7 @@
-import crypto from 'crypto';
-import { db } from '../../db';
-import { sessions, users } from '../../db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import crypto from "crypto";
+import { db } from "../../db";
+import { sessions, users } from "../../db/schema";
+import { eq, and, gt } from "drizzle-orm";
 
 const DEFAULT_SESSION_EXPIRY_DAYS = 7;
 const TOKEN_BYTES = 32;
@@ -19,7 +19,7 @@ export function getSessionExpiryDays(): number {
 }
 
 export function generateSecureToken(): string {
-  return crypto.randomBytes(TOKEN_BYTES).toString('hex');
+  return crypto.randomBytes(TOKEN_BYTES).toString("hex");
 }
 
 export function calculateExpiryDate(days: number): Date {
@@ -42,11 +42,13 @@ export interface SessionWithUser {
   user: {
     id: number;
     username: string;
-    role: 'admin' | 'user';
+    role: "admin" | "user";
   };
 }
 
-export async function createSession(userId: number): Promise<{ token: string; expiresAt: Date }> {
+export async function createSession(
+  userId: number,
+): Promise<{ token: string; expiresAt: Date }> {
   const token = generateSecureToken();
   const expiresAt = calculateExpiryDate(getSessionExpiryDays());
 
@@ -59,7 +61,9 @@ export async function createSession(userId: number): Promise<{ token: string; ex
   return { token, expiresAt };
 }
 
-export async function validateSession(token: string): Promise<SessionWithUser | null> {
+export async function validateSession(
+  token: string,
+): Promise<SessionWithUser | null> {
   if (!isValidTokenFormat(token)) {
     return null;
   }
@@ -75,10 +79,7 @@ export async function validateSession(token: string): Promise<SessionWithUser | 
     })
     .from(sessions)
     .innerJoin(users, eq(sessions.user_id, users.id))
-    .where(and(
-      eq(sessions.token, token),
-      gt(sessions.expires_at, new Date())
-    ))
+    .where(and(eq(sessions.token, token), gt(sessions.expires_at, new Date())))
     .limit(1);
 
   return result[0] || null;
@@ -97,7 +98,7 @@ export async function deleteUserSessions(userId: number): Promise<void> {
  * Disabled by default.
  */
 export function isSlidingExpirationEnabled(): boolean {
-  return process.env.SLIDING_EXPIRATION === 'true';
+  return process.env.SLIDING_EXPIRATION === "true";
 }
 
 /**
