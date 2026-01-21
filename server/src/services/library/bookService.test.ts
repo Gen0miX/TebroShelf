@@ -71,7 +71,9 @@ describe("bookService", () => {
 
   describe("getBookByFilePath", () => {
     it("returns null for non-existent file path", async () => {
-      const book = await bookService.getBookByFilePath("/non/existent/path.epub");
+      const book = await bookService.getBookByFilePath(
+        "/non/existent/path.epub",
+      );
       expect(book).toBeNull();
     });
 
@@ -103,7 +105,7 @@ describe("bookService", () => {
       const originalUpdatedAt = book.updated_at;
 
       // Delay to ensure timestamp difference (SQLite stores timestamps with second precision)
-      await new Promise((r) => setTimeout(r, 900));
+      await new Promise((r) => setTimeout(r, 1000));
 
       const updated = await bookService.updateBook(book.id, {
         title: "Updated Title",
