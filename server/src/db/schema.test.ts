@@ -409,17 +409,29 @@ describe('Books Schema (Story 1.7)', () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         title TEXT NOT NULL,
         author TEXT,
+        description TEXT,
+        genres TEXT,
+        series TEXT,
+        volume INTEGER,
+        isbn TEXT,
+        publication_date TEXT,
         file_path TEXT NOT NULL,
         file_type TEXT NOT NULL CHECK(file_type IN ('epub', 'cbz', 'cbr')),
         content_type TEXT NOT NULL CHECK(content_type IN ('book', 'manga')),
         cover_path TEXT,
         status TEXT DEFAULT 'pending' NOT NULL CHECK(status IN ('pending', 'enriched', 'quarantine')),
+        failure_reason TEXT,
         visibility TEXT DEFAULT 'public' NOT NULL CHECK(visibility IN ('public', 'private')),
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
       CREATE UNIQUE INDEX idx_books_file_path ON books (file_path);
       CREATE INDEX idx_books_visibility ON books (visibility);
+      CREATE INDEX idx_books_title ON books (title);
+      CREATE INDEX idx_books_author ON books (author);
+      CREATE INDEX idx_books_content_type ON books (content_type);
+      CREATE INDEX idx_books_status ON books (status);
+      CREATE INDEX idx_books_created_at ON books (created_at);
     `);
   });
 

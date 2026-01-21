@@ -9,9 +9,54 @@ import {
   setBookVisibility,
   applyVisibilityFilter,
 } from "../services/library/visibilityService";
+import { getBookById } from "../services/library/bookService";
 import { logger } from "../utils/logger";
 
 const router = Router();
+
+// Helper function to transform book data (parse genres JSON)
+function transformBook(
+  book: any,
+  includeVisibility: boolean = false,
+): Record<string, any> {
+  const transformed: Record<string, any> = {
+    id: book.id,
+    title: book.title,
+    author: book.author,
+    description: book.description,
+    series: book.series,
+    volume: book.volume,
+    isbn: book.isbn,
+    publication_date: book.publication_date,
+    file_path: book.file_path,
+    file_type: book.file_type,
+    content_type: book.content_type,
+    cover_path: book.cover_path,
+    status: book.status,
+    failure_reason: book.failure_reason,
+    created_at: book.created_at.toISOString(),
+    updated_at: book.updated_at.toISOString(),
+  };
+
+  // Parse genres if present and not null
+  if (book.genres) {
+    try {
+      transformed.genres = JSON.parse(book.genres);
+    } catch {
+      transformed.genres = [];
+    }
+  } else {
+    transformed.genres = null;
+  }
+
+  // Include visibility fields only for admin
+  if (includeVisibility) {
+    transformed.visibility = book.visibility;
+    transformed.isPrivate = book.visibility === "private";
+  }
+
+  return transformed;
+}
 
 // Validation schema for visibility update (AC #1)
 const visibilitySchema = z.object({
@@ -70,11 +115,17 @@ router.patch(
     // Update visibility
     await setBookVisibility(bookId, parsed.data.visibility);
 
-    // Fetch updated book
-    const [updatedBook] = await db
-      .select()
-      .from(books)
-      .where(eq(books.id, bookId));
+    // Fetch updated book using bookService
+    const updatedBook = await getBookById(bookId);
+
+    if (!updatedBook) {
+      return res.status(500).json({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to fetch updated book",
+        },
+      });
+    }
 
     logger.info("Book visibility updated", {
       event: "book_visibility_updated",
@@ -85,13 +136,7 @@ router.patch(
     });
 
     return res.json({
-      data: {
-        id: updatedBook.id,
-        title: updatedBook.title,
-        author: updatedBook.author,
-        visibility: updatedBook.visibility,
-        updated_at: updatedBook.updated_at.toISOString(),
-      },
+      data: transformBook(updatedBook, true),
     });
   },
 );
@@ -116,41 +161,11 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
   const bookList = await query;
 
   // Format response based on role (AC #5, Task 6)
-  if (userRole === "admin") {
-    // Admin sees all books with visibility indicator
-    const data = bookList.map((book) => ({
-      id: book.id,
-      title: book.title,
-      author: book.author,
-      file_path: book.file_path,
-      file_type: book.file_type,
-      content_type: book.content_type,
-      cover_path: book.cover_path,
-      status: book.status,
-      visibility: book.visibility,
-      isPrivate: book.visibility === "private",
-      created_at: book.created_at.toISOString(),
-      updated_at: book.updated_at.toISOString(),
-    }));
+  const data = bookList.map((book) =>
+    transformBook(book, userRole === "admin"),
+  );
 
-    return res.json({ data });
-  } else {
-    // Regular users see only public content, visibility field omitted
-    const data = bookList.map((book) => ({
-      id: book.id,
-      title: book.title,
-      author: book.author,
-      file_path: book.file_path,
-      file_type: book.file_type,
-      content_type: book.content_type,
-      cover_path: book.cover_path,
-      status: book.status,
-      created_at: book.created_at.toISOString(),
-      updated_at: book.updated_at.toISOString(),
-    }));
-
-    return res.json({ data });
-  }
+  return res.json({ data });
 });
 
 /**
@@ -170,7 +185,7 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
     });
   }
 
-  const [book] = await db.select().from(books).where(eq(books.id, bookId));
+  const book = await getBookById(bookId);
 
   if (!book) {
     return res.status(404).json({
@@ -193,39 +208,9 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
   }
 
   // Format response based on role
-  if (userRole === "admin") {
-    return res.json({
-      data: {
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        file_path: book.file_path,
-        file_type: book.file_type,
-        content_type: book.content_type,
-        cover_path: book.cover_path,
-        status: book.status,
-        visibility: book.visibility,
-        isPrivate: book.visibility === "private",
-        created_at: book.created_at.toISOString(),
-        updated_at: book.updated_at.toISOString(),
-      },
-    });
-  } else {
-    return res.json({
-      data: {
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        file_path: book.file_path,
-        file_type: book.file_type,
-        content_type: book.content_type,
-        cover_path: book.cover_path,
-        status: book.status,
-        created_at: book.created_at.toISOString(),
-        updated_at: book.updated_at.toISOString(),
-      },
-    });
-  }
+  const data = transformBook(book, userRole === "admin");
+
+  return res.json({ data });
 });
 
 export default router;
