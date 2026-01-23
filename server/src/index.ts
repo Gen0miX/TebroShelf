@@ -3,6 +3,7 @@ import { db } from "./db/index.js";
 import { seedAdmin } from "./scripts/seed.js";
 import { startScheduler, stopScheduler } from "./workers/scheduler.js";
 import { startFileWatcher, stopFileWatcher } from "./workers/fileWatcher.js";
+import { processDetectedFile } from "./services/file/fileProcessor.js";
 import { logger } from "./utils/logger.js";
 
 const PORT = process.env.PORT || 3000;
@@ -21,12 +22,34 @@ seedAdmin().then(() => {
 
   // Start file watcher (Epic 2 - File watching service)
   const fileWatcherInstance = startFileWatcher(async (event) => {
-    //Placeholder callback - will be replaced in Story 2.3/2.4
-    logger.info("File detected by watcher", {
-      context: "fileWatcher",
-      filename: event.filename,
-      extension: event.extension,
-    });
+    try {
+      const result = await processDetectedFile(event);
+      if (result.action === "created") {
+        logger.info("File processed successfully", {
+          context: "main",
+          filename: event.filename,
+          bookId: result.bookId,
+        });
+      } else if (result.action === "skipped") {
+        logger.info("File skipped", {
+          context: "main",
+          filename: event.filename,
+          reason: result.reason,
+        });
+      } else {
+        logger.warn("File processing failed", {
+          context: "main",
+          filename: event.filename,
+          reason: result.reason,
+        });
+      }
+    } catch (err) {
+      logger.error("Unexpected error processing detected file", {
+        context: "main",
+        filename: event.filename,
+        error: err as Error,
+      });
+    }
   });
 
   // Graceful shutdown handler (prevents resource leaks from scheduler interval)
