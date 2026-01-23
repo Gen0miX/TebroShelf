@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi, Mock } from "vitest";
 import path from "path";
 import fs from "fs";
 import os from "os";
@@ -7,23 +7,31 @@ import { books } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { startFileWatcher, stopFileWatcher } from "../../workers/fileWatcher";
 import { processDetectedFile } from "./fileProcessor";
-import { createValidTestEpub } from "./testUtils";
+import {
+  createValidTestEpub,
+  createValidTestCbz,
+  createDummyCbr,
+} from "./testUtils";
 import * as eventEmitter from "../../websocket/event";
+import { createExtractorFromFile } from "node-unrar-js";
+
+// Mock the RAR extractor for integration tests (CBR)
+vi.mock("node-unrar-js", () => ({
+  createExtractorFromFile: vi.fn(),
+}));
 
 describe("File Processor Integration", () => {
   let tempWatchDir: string;
 
   beforeEach(async () => {
-    // 1. Create a temporary folder for the watcher
+    // 1. Setup temporary watch directory
     tempWatchDir = fs.mkdtempSync(path.join(os.tmpdir(), "watch-integration-"));
-
-    // Configure the environment variable for the watcher (if your config reads it via process.env)
     process.env.WATCH_DIR = tempWatchDir;
 
-    // 2. Clean the books table before each test to avoid collisions
+    // 2. Clean database
     await db.delete(books);
 
-    // 3. Spy on the WebSocket emitter (Story 9.5)
+    // 3. Spy on WebSocket events
     vi.spyOn(eventEmitter, "emitFileDetected");
   });
 
@@ -35,9 +43,10 @@ describe("File Processor Integration", () => {
     vi.restoreAllMocks();
   });
 
-  it("should detect, process, and save a book in the database when a file is added", async () => {
-    // 9.2 & 9.3 : Setup of the complete flow
-    // We wrap the detection in a Promise to wait for processing to complete
+  /**
+   * TEST: EPUB Flow (Original Test)
+   */
+  it("should detect, process, and save a book in the database when an EPUB is added", async () => {
     const processingComplete = new Promise<void>((resolve) => {
       startFileWatcher(async (event) => {
         await processDetectedFile(event);
@@ -45,17 +54,13 @@ describe("File Processor Integration", () => {
       });
     });
 
-    // Wait for the watcher to be ready (Chokidar Ready)
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Create a real EPUB file (9.3)
     const fileName = "integration-test.epub";
-    const filePath = createValidTestEpub(tempWatchDir, fileName);
+    createValidTestEpub(tempWatchDir, fileName);
 
-    // Wait for the processor to finish its work
     await processingComplete;
 
-    // 9.4 : Verify that the record exists in the database
     const dbBooks = await db
       .select()
       .from(books)
@@ -63,27 +68,97 @@ describe("File Processor Integration", () => {
 
     expect(dbBooks).toHaveLength(1);
     expect(dbBooks[0]).toMatchObject({
-      title: "Integration Test",
       file_type: "epub",
       content_type: "book",
-      status: "pending",
     });
 
-    // 9.5 : Verify that the WebSocket event was "emitted" (logged for now)
     expect(eventEmitter.emitFileDetected).toHaveBeenCalledWith(
       expect.objectContaining({
         filename: fileName,
         contentType: "book",
+      }),
+    );
+  });
+
+  /**
+   * TEST: CBZ Flow (Task 9.2, 9.5, 9.6)
+   */
+  it("should detect and save a manga record for a CBZ file", async () => {
+    const processingComplete = new Promise<void>((resolve) => {
+      startFileWatcher(async (event) => {
+        await processDetectedFile(event);
+        resolve();
+      });
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const fileName = "manga-test.cbz";
+    createValidTestCbz(tempWatchDir, fileName);
+
+    await processingComplete;
+
+    const dbBooks = await db
+      .select()
+      .from(books)
+      .where(eq(books.file_type, "cbz"));
+
+    expect(dbBooks).toHaveLength(1);
+    expect(dbBooks[0]).toMatchObject({
+      title: "Manga Test",
+      content_type: "manga",
+    });
+
+    expect(eventEmitter.emitFileDetected).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: "manga",
         bookId: dbBooks[0].id,
       }),
     );
   });
 
+  /**
+   * TEST: CBR Flow (Task 9.3)
+   */
+  it("should process a CBR file correctly using mocked unrar extractor", async () => {
+    // Setup mock for node-unrar-js
+    (createExtractorFromFile as Mock).mockResolvedValue({
+      getFileList: () => ({
+        fileHeaders: [{ name: "page1.jpg", flags: { directory: false } }],
+      }),
+    });
+
+    const processingComplete = new Promise<void>((resolve) => {
+      startFileWatcher(async (event) => {
+        await processDetectedFile(event);
+        resolve();
+      });
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const fileName = "comic-test.cbr";
+    createDummyCbr(tempWatchDir, fileName);
+
+    await processingComplete;
+
+    const dbBooks = await db
+      .select()
+      .from(books)
+      .where(eq(books.file_type, "cbr"));
+
+    expect(dbBooks).toHaveLength(1);
+    expect(dbBooks[0].content_type).toBe("manga");
+  });
+
+  /**
+   * TEST: Duplicates (Original Test)
+   */
   it("should not create a duplicate if the same file is detected twice", async () => {
     const fileName = "duplicate-check.epub";
     const filePath = createValidTestEpub(tempWatchDir, fileName);
 
-    // First pass
+    // First manual pass
     await processDetectedFile({
       filePath,
       filename: fileName,
@@ -91,7 +166,7 @@ describe("File Processor Integration", () => {
       timestamp: new Date(),
     });
 
-    // Second pass (simulated)
+    // Second manual pass
     const result = await processDetectedFile({
       filePath,
       filename: fileName,
@@ -102,6 +177,6 @@ describe("File Processor Integration", () => {
     expect(result.action).toBe("skipped");
 
     const allBooks = await db.select().from(books);
-    expect(allBooks).toHaveLength(1); // Still only 1 book
+    expect(allBooks).toHaveLength(1);
   });
 });

@@ -1,6 +1,8 @@
 import path from "path";
 import { FileDetectedEvent } from "../../workers/fileWatcher";
 import { validateEpub } from "./epubValidator";
+import { validateCbz } from "./cbzValidator";
+import { validateCbr } from "./cbrValidator";
 import { createBook, getBookByFilePath } from "../library/bookService";
 import { logger } from "../../utils/logger";
 import { emitFileDetected } from "../../websocket/event";
@@ -103,9 +105,42 @@ export async function processDetectedFile(
         reason: validationResult.reason,
       };
     }
+  } else if (extension.toLowerCase() === ".cbz") {
+    const validationResult = await validateCbz(filePath);
+    if (!validationResult.valid) {
+      logger.warn("CBZ validation failed", {
+        context,
+        filePath,
+        reason: validationResult.reason,
+      });
+      return {
+        success: false,
+        action: "failed",
+        reason: validationResult.reason,
+      };
+    }
+  } else if (extension.toLowerCase() === ".cbr") {
+    const validationResult = await validateCbr(filePath);
+    if (!validationResult.valid) {
+      logger.warn("CBR validation failed", {
+        context,
+        filePath,
+        reason: validationResult.reason,
+      });
+      return {
+        success: false,
+        action: "failed",
+        reason: validationResult.reason,
+      };
+    }
+  } else {
+    logger.warn("Unsupported file extension", { context, filePath, extension });
+    return {
+      success: false,
+      action: "failed",
+      reason: `Unsupported file type: ${extension}`,
+    };
   }
-
-  // Note : CBZ/CBR validation will be added in Story 2.4
 
   // 3. Create book record
   try {
@@ -127,6 +162,7 @@ export async function processDetectedFile(
       bookId: book.id,
       title,
       contentType,
+      fileType,
     });
 
     // 4. Emit WebSocket event
