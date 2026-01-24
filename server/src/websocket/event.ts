@@ -1,4 +1,7 @@
-import { logger } from "../utils/logger.js";
+import { logger } from "../utils/logger";
+import { broadcast } from "./wsServer";
+
+const context = "websocket";
 
 // Event type definitions following architecture pattern: resource.action
 export interface FileDetectedPayload {
@@ -6,6 +9,14 @@ export interface FileDetectedPayload {
   contentType: "book" | "manga";
   bookId: number;
   timestamp: string; // ISO 8601
+}
+
+export interface ScanCompletedPayload {
+  filesFound: number;
+  filesProcessed: number;
+  filesSkipped: number;
+  errors: number;
+  duration: number;
 }
 
 export interface WebSocketMessage<T = unknown> {
@@ -16,8 +27,6 @@ export interface WebSocketMessage<T = unknown> {
 
 /**
  * Emit file.detected event.
- * Note: WebSocket server implementation will be enhanced in Story 2.6.
- * For now, this logs the event and prepares the message structure.
  */
 export function emitFileDetected(payload: FileDetectedPayload): void {
   const message: WebSocketMessage<FileDetectedPayload> = {
@@ -26,12 +35,28 @@ export function emitFileDetected(payload: FileDetectedPayload): void {
     timestamp: new Date().toISOString(),
   };
 
-  logger.info("WebSocket event emitted", {
-    context: "websocket",
-    eventType: message.type,
+  logger.info("Emitting file.detected event", {
+    context: context,
     payload: message.payload,
   });
 
-  //TODO: Actual WebSocket broadcast will be implemented in Story 2.6
-  //wsServer.broadcast(JSON.stringify(message));
+  broadcast(message);
+}
+
+/**
+ * Emit scan.completed event to all connected clients.
+ */
+export function emitScanCompleted(payload: ScanCompletedPayload): void {
+  const message: WebSocketMessage<ScanCompletedPayload> = {
+    type: "scan.completed",
+    payload,
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.info("Emitting scan.completed event", {
+    context: context,
+    payload: message.payload,
+  });
+
+  broadcast(message);
 }

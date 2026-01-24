@@ -1,20 +1,36 @@
-import { Routes, Route } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+// client/src/App.tsx
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider, ProtectedRoute, LoginPage } from "@/features/auth";
+import { WebSocketProvider } from "@/shared/providers/WebSocketProvider";
+import { Toaster } from "@/components/ui/toaster";
+// import { LibraryPage } from '@/features/library/pages/LibraryPage';
 
-function Home() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-      <h1 className="text-4xl font-bold mb-4">TebroShelf</h1>
-      <Button onClick={() => alert("Welcome!")}>Get Started</Button>
-    </div>
-  );
-}
+const queryClient = new QueryClient();
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-    </Routes>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <WebSocketProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route
+                path="/*"
+                element={
+                  <ProtectedRoute>
+                    {/* <LibraryPage /> */}
+                    <div>Library placeholder - protected content</div>
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+          <Toaster />
+        </WebSocketProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

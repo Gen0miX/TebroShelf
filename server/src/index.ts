@@ -1,9 +1,12 @@
+import { Express } from "express";
+import http from "http";
 import { app } from "./app.js";
 import { db } from "./db/index.js";
 import { seedAdmin } from "./scripts/seed.js";
 import { startScheduler, stopScheduler } from "./workers/scheduler.js";
 import { startFileWatcher, stopFileWatcher } from "./workers/fileWatcher.js";
 import { processDetectedFile } from "./services/file/fileProcessor.js";
+import { initializeWebSocket } from "./websocket/wsServer.js";
 import { logger } from "./utils/logger.js";
 
 const PORT = process.env.PORT || 3000;
@@ -16,7 +19,10 @@ seedAdmin().then(() => {
   // Start background workers (Story 1.5 - Session cleanup scheduler)
   startScheduler();
 
-  const server = app.listen(PORT, () => {
+  const server = http.createServer(app);
+  initializeWebSocket(server);
+
+  server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });
 

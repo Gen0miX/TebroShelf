@@ -1,0 +1,9 @@
+# Development Dockerfile - hot reload with volume mounts
+FROM node:20-alpine
+
+WORKDIR /app
+
+EXPOSE 5173
+
+# Install deps at startup (volume mount overwrites build-time node_modules)
+CMD ["sh", "-c", "npm install && npm run dev -- --host"]

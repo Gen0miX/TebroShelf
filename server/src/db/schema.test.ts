@@ -1,17 +1,29 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { eq } from 'drizzle-orm';
-import { users, sessions, books } from './schema';
-import type { User, NewUser, UserRole, Session, NewSession, Book, NewBook, Visibility, FileType, ContentType, BookStatus } from './schema';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import Database from "better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+import { eq } from "drizzle-orm";
+import { users, sessions, books } from "./schema";
+import type {
+  User,
+  NewUser,
+  UserRole,
+  Session,
+  NewSession,
+  Book,
+  NewBook,
+  Visibility,
+  FileType,
+  ContentType,
+  BookStatus,
+} from "./schema";
 
-describe('User Schema (Story 1.2)', () => {
+describe("User Schema (Story 1.2)", () => {
   let sqlite: Database.Database;
   let db: ReturnType<typeof drizzle>;
 
   beforeAll(() => {
     // Use in-memory database for tests
-    sqlite = new Database(':memory:');
+    sqlite = new Database(":memory:");
     db = drizzle(sqlite, { schema: { users, sessions } });
 
     // Create table with CHECK constraint
@@ -42,31 +54,31 @@ describe('User Schema (Story 1.2)', () => {
     sqlite.close();
   });
 
-  describe('AC #1: Users table columns', () => {
-    it('should have all required columns: id, username, password_hash, role, created_at, updated_at', () => {
-      const tableInfo = sqlite.pragma('table_info(users)') as Array<{
+  describe("AC #1: Users table columns", () => {
+    it("should have all required columns: id, username, password_hash, role, created_at, updated_at", () => {
+      const tableInfo = sqlite.pragma("table_info(users)") as Array<{
         name: string;
         type: string;
         notnull: number;
       }>;
 
       const columnNames = tableInfo.map((col) => col.name);
-      expect(columnNames).toContain('id');
-      expect(columnNames).toContain('username');
-      expect(columnNames).toContain('password_hash');
-      expect(columnNames).toContain('role');
-      expect(columnNames).toContain('created_at');
-      expect(columnNames).toContain('updated_at');
+      expect(columnNames).toContain("id");
+      expect(columnNames).toContain("username");
+      expect(columnNames).toContain("password_hash");
+      expect(columnNames).toContain("role");
+      expect(columnNames).toContain("created_at");
+      expect(columnNames).toContain("updated_at");
     });
 
-    it('should insert user with all fields populated', () => {
+    it("should insert user with all fields populated", () => {
       const now = new Date();
       const result = db
         .insert(users)
         .values({
-          username: 'testuser_ac1',
-          password_hash: 'hashed_password',
-          role: 'user',
+          username: "testuser_ac1",
+          password_hash: "hashed_password",
+          role: "user",
           created_at: now,
           updated_at: now,
         })
@@ -75,30 +87,30 @@ describe('User Schema (Story 1.2)', () => {
 
       expect(result).toBeDefined();
       expect(result!.id).toBeGreaterThan(0);
-      expect(result!.username).toBe('testuser_ac1');
-      expect(result!.password_hash).toBe('hashed_password');
-      expect(result!.role).toBe('user');
+      expect(result!.username).toBe("testuser_ac1");
+      expect(result!.password_hash).toBe("hashed_password");
+      expect(result!.role).toBe("user");
       expect(result!.created_at).toBeInstanceOf(Date);
       expect(result!.updated_at).toBeInstanceOf(Date);
     });
   });
 
-  describe('AC #2: Role constraint', () => {
+  describe("AC #2: Role constraint", () => {
     it('should accept "admin" role', () => {
       const now = new Date();
       const result = db
         .insert(users)
         .values({
-          username: 'admin_user',
-          password_hash: 'hash',
-          role: 'admin',
+          username: "admin_user",
+          password_hash: "hash",
+          role: "admin",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
 
-      expect(result!.role).toBe('admin');
+      expect(result!.role).toBe("admin");
     });
 
     it('should accept "user" role', () => {
@@ -106,26 +118,26 @@ describe('User Schema (Story 1.2)', () => {
       const result = db
         .insert(users)
         .values({
-          username: 'normal_user',
-          password_hash: 'hash',
-          role: 'user',
+          username: "normal_user",
+          password_hash: "hash",
+          role: "user",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
 
-      expect(result!.role).toBe('user');
+      expect(result!.role).toBe("user");
     });
 
-    it('should reject invalid role values', () => {
+    it("should reject invalid role values", () => {
       const now = new Date();
       expect(() => {
         db.insert(users)
           .values({
-            username: 'invalid_role_user',
-            password_hash: 'hash',
-            role: 'superuser' as any, // Testing runtime constraint with invalid role
+            username: "invalid_role_user",
+            password_hash: "hash",
+            role: "superuser" as any, // Testing runtime constraint with invalid role
             created_at: now,
             updated_at: now,
           })
@@ -134,17 +146,17 @@ describe('User Schema (Story 1.2)', () => {
     });
   });
 
-  describe('AC #3: Unique username constraint', () => {
-    it('should reject duplicate usernames', () => {
+  describe("AC #3: Unique username constraint", () => {
+    it("should reject duplicate usernames", () => {
       const now = new Date();
-      const username = 'duplicate_test_user';
+      const username = "duplicate_test_user";
 
       // First insert should succeed
       db.insert(users)
         .values({
           username,
-          password_hash: 'hash1',
-          role: 'user',
+          password_hash: "hash1",
+          role: "user",
           created_at: now,
           updated_at: now,
         })
@@ -155,8 +167,8 @@ describe('User Schema (Story 1.2)', () => {
         db.insert(users)
           .values({
             username,
-            password_hash: 'hash2',
-            role: 'user',
+            password_hash: "hash2",
+            role: "user",
             created_at: now,
             updated_at: now,
           })
@@ -165,13 +177,13 @@ describe('User Schema (Story 1.2)', () => {
     });
   });
 
-  describe('AC #4: TypeScript type inference', () => {
-    it('should export User type with correct shape', () => {
+  describe("AC #4: TypeScript type inference", () => {
+    it("should export User type with correct shape", () => {
       const user: User = {
         id: 1,
-        username: 'test',
-        password_hash: 'hash',
-        role: 'user',
+        username: "test",
+        password_hash: "hash",
+        role: "user",
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -184,11 +196,11 @@ describe('User Schema (Story 1.2)', () => {
       expect(user.updated_at).toBeDefined();
     });
 
-    it('should export NewUser type for inserts', () => {
+    it("should export NewUser type for inserts", () => {
       const newUser: NewUser = {
-        username: 'new_user',
-        password_hash: 'hash',
-        role: 'admin',
+        username: "new_user",
+        password_hash: "hash",
+        role: "admin",
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -198,36 +210,38 @@ describe('User Schema (Story 1.2)', () => {
       expect(newUser.id).toBeUndefined();
     });
 
-    it('should export UserRole type', () => {
-      const adminRole: UserRole = 'admin';
-      const userRole: UserRole = 'user';
+    it("should export UserRole type", () => {
+      const adminRole: UserRole = "admin";
+      const userRole: UserRole = "user";
 
-      expect(adminRole).toBe('admin');
-      expect(userRole).toBe('user');
+      expect(adminRole).toBe("admin");
+      expect(userRole).toBe("user");
     });
   });
 
-  describe('AC #5: Migration system', () => {
-    it('should have idx_users_username index', () => {
-      const indexes = sqlite.pragma('index_list(users)') as Array<{
+  describe("AC #5: Migration system", () => {
+    it("should have idx_users_username index", () => {
+      const indexes = sqlite.pragma("index_list(users)") as Array<{
         name: string;
         unique: number;
       }>;
 
-      const usernameIndex = indexes.find((idx) => idx.name === 'idx_users_username');
+      const usernameIndex = indexes.find(
+        (idx) => idx.name === "idx_users_username",
+      );
       expect(usernameIndex).toBeDefined();
       expect(usernameIndex!.unique).toBe(1);
     });
   });
 });
 
-describe('Sessions Schema (Story 1.4)', () => {
+describe("Sessions Schema (Story 1.4)", () => {
   let sqlite: Database.Database;
   let db: ReturnType<typeof drizzle>;
   let testUserId: number;
 
   beforeAll(() => {
-    sqlite = new Database(':memory:');
+    sqlite = new Database(":memory:");
     db = drizzle(sqlite, { schema: { users, sessions } });
 
     sqlite.exec(`
@@ -257,9 +271,9 @@ describe('Sessions Schema (Story 1.4)', () => {
     const result = db
       .insert(users)
       .values({
-        username: 'session_test_user',
-        password_hash: 'hashed_password',
-        role: 'user',
+        username: "session_test_user",
+        password_hash: "hashed_password",
+        role: "user",
         created_at: now,
         updated_at: now,
       })
@@ -272,30 +286,30 @@ describe('Sessions Schema (Story 1.4)', () => {
     sqlite.close();
   });
 
-  describe('AC #2: Sessions table columns (Story 1.4)', () => {
-    it('should have all required columns: id, user_id, token, expires_at, created_at', () => {
-      const tableInfo = sqlite.pragma('table_info(sessions)') as Array<{
+  describe("AC #2: Sessions table columns (Story 1.4)", () => {
+    it("should have all required columns: id, user_id, token, expires_at, created_at", () => {
+      const tableInfo = sqlite.pragma("table_info(sessions)") as Array<{
         name: string;
         type: string;
         notnull: number;
       }>;
 
       const columnNames = tableInfo.map((col) => col.name);
-      expect(columnNames).toContain('id');
-      expect(columnNames).toContain('user_id');
-      expect(columnNames).toContain('token');
-      expect(columnNames).toContain('expires_at');
-      expect(columnNames).toContain('created_at');
+      expect(columnNames).toContain("id");
+      expect(columnNames).toContain("user_id");
+      expect(columnNames).toContain("token");
+      expect(columnNames).toContain("expires_at");
+      expect(columnNames).toContain("created_at");
     });
 
-    it('should insert session with all fields populated', () => {
+    it("should insert session with all fields populated", () => {
       const now = new Date();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const result = db
         .insert(sessions)
         .values({
           user_id: testUserId,
-          token: 'test_token_abc123',
+          token: "test_token_abc123",
           expires_at: expiresAt,
           created_at: now,
         })
@@ -305,17 +319,17 @@ describe('Sessions Schema (Story 1.4)', () => {
       expect(result).toBeDefined();
       expect(result!.id).toBeGreaterThan(0);
       expect(result!.user_id).toBe(testUserId);
-      expect(result!.token).toBe('test_token_abc123');
+      expect(result!.token).toBe("test_token_abc123");
       expect(result!.expires_at).toBeInstanceOf(Date);
       expect(result!.created_at).toBeInstanceOf(Date);
     });
   });
 
-  describe('Session token uniqueness', () => {
-    it('should reject duplicate tokens', () => {
+  describe("Session token uniqueness", () => {
+    it("should reject duplicate tokens", () => {
       const now = new Date();
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-      const token = 'unique_token_test';
+      const token = "unique_token_test";
 
       // First insert should succeed
       db.insert(sessions)
@@ -341,34 +355,38 @@ describe('Sessions Schema (Story 1.4)', () => {
     });
   });
 
-  describe('Session indexes', () => {
-    it('should have idx_sessions_token index for fast lookups', () => {
-      const indexes = sqlite.pragma('index_list(sessions)') as Array<{
+  describe("Session indexes", () => {
+    it("should have idx_sessions_token index for fast lookups", () => {
+      const indexes = sqlite.pragma("index_list(sessions)") as Array<{
         name: string;
         unique: number;
       }>;
 
-      const tokenIndex = indexes.find((idx) => idx.name === 'idx_sessions_token');
+      const tokenIndex = indexes.find(
+        (idx) => idx.name === "idx_sessions_token",
+      );
       expect(tokenIndex).toBeDefined();
     });
 
-    it('should have idx_sessions_user_id index', () => {
-      const indexes = sqlite.pragma('index_list(sessions)') as Array<{
+    it("should have idx_sessions_user_id index", () => {
+      const indexes = sqlite.pragma("index_list(sessions)") as Array<{
         name: string;
         unique: number;
       }>;
 
-      const userIdIndex = indexes.find((idx) => idx.name === 'idx_sessions_user_id');
+      const userIdIndex = indexes.find(
+        (idx) => idx.name === "idx_sessions_user_id",
+      );
       expect(userIdIndex).toBeDefined();
     });
   });
 
-  describe('TypeScript type inference for Session', () => {
-    it('should export Session type with correct shape', () => {
+  describe("TypeScript type inference for Session", () => {
+    it("should export Session type with correct shape", () => {
       const session: Session = {
         id: 1,
         user_id: 1,
-        token: 'abc123',
+        token: "abc123",
         expires_at: new Date(),
         created_at: new Date(),
       };
@@ -380,10 +398,10 @@ describe('Sessions Schema (Story 1.4)', () => {
       expect(session.created_at).toBeDefined();
     });
 
-    it('should export NewSession type for inserts', () => {
+    it("should export NewSession type for inserts", () => {
       const newSession: NewSession = {
         user_id: 1,
-        token: 'new_token',
+        token: "new_token",
         expires_at: new Date(),
         created_at: new Date(),
       };
@@ -396,12 +414,12 @@ describe('Sessions Schema (Story 1.4)', () => {
   });
 });
 
-describe('Books Schema (Story 1.7)', () => {
+describe("Books Schema (Story 1.7)", () => {
   let sqlite: Database.Database;
   let db: ReturnType<typeof drizzle>;
 
   beforeAll(() => {
-    sqlite = new Database(':memory:');
+    sqlite = new Database(":memory:");
     db = drizzle(sqlite, { schema: { users, sessions, books } });
 
     sqlite.exec(`
@@ -439,17 +457,17 @@ describe('Books Schema (Story 1.7)', () => {
     sqlite.close();
   });
 
-  describe('AC #1: Visibility column exists with constraint', () => {
-    it('should have visibility column', () => {
-      const tableInfo = sqlite.pragma('table_info(books)') as Array<{
+  describe("AC #1: Visibility column exists with constraint", () => {
+    it("should have visibility column", () => {
+      const tableInfo = sqlite.pragma("table_info(books)") as Array<{
         name: string;
         type: string;
         notnull: number;
       }>;
 
-      const visibilityCol = tableInfo.find((col) => col.name === 'visibility');
+      const visibilityCol = tableInfo.find((col) => col.name === "visibility");
       expect(visibilityCol).toBeDefined();
-      expect(visibilityCol!.type).toBe('TEXT');
+      expect(visibilityCol!.type).toBe("TEXT");
       expect(visibilityCol!.notnull).toBe(1);
     });
 
@@ -458,18 +476,18 @@ describe('Books Schema (Story 1.7)', () => {
       const result = db
         .insert(books)
         .values({
-          title: 'Public Book',
-          file_path: '/books/public-book.epub',
-          file_type: 'epub',
-          content_type: 'book',
-          visibility: 'public',
+          title: "Public Book",
+          file_path: "/books/public-book.epub",
+          file_type: "epub",
+          content_type: "book",
+          visibility: "public",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
 
-      expect(result!.visibility).toBe('public');
+      expect(result!.visibility).toBe("public");
     });
 
     it('should accept "private" visibility', () => {
@@ -477,30 +495,30 @@ describe('Books Schema (Story 1.7)', () => {
       const result = db
         .insert(books)
         .values({
-          title: 'Private Book',
-          file_path: '/books/private-book.epub',
-          file_type: 'epub',
-          content_type: 'book',
-          visibility: 'private',
+          title: "Private Book",
+          file_path: "/books/private-book.epub",
+          file_type: "epub",
+          content_type: "book",
+          visibility: "private",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
 
-      expect(result!.visibility).toBe('private');
+      expect(result!.visibility).toBe("private");
     });
 
-    it('should reject invalid visibility values', () => {
+    it("should reject invalid visibility values", () => {
       const now = new Date();
       expect(() => {
         db.insert(books)
           .values({
-            title: 'Invalid Visibility Book',
-            file_path: '/books/invalid-vis.epub',
-            file_type: 'epub',
-            content_type: 'book',
-            visibility: 'secret' as any,
+            title: "Invalid Visibility Book",
+            file_path: "/books/invalid-vis.epub",
+            file_type: "epub",
+            content_type: "book",
+            visibility: "secret" as any,
             created_at: now,
             updated_at: now,
           })
@@ -509,61 +527,61 @@ describe('Books Schema (Story 1.7)', () => {
     });
   });
 
-  describe('AC #4: Default visibility is public', () => {
-    it('should default visibility to public when not specified', () => {
+  describe("AC #4: Default visibility is public", () => {
+    it("should default visibility to public when not specified", () => {
       const now = new Date();
       const result = db
         .insert(books)
         .values({
-          title: 'Default Visibility Book',
-          file_path: '/books/default-vis.epub',
-          file_type: 'epub',
-          content_type: 'book',
+          title: "Default Visibility Book",
+          file_path: "/books/default-vis.epub",
+          file_type: "epub",
+          content_type: "book",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
 
-      expect(result!.visibility).toBe('public');
+      expect(result!.visibility).toBe("public");
     });
   });
 
-  describe('Books table all columns', () => {
-    it('should have all required columns', () => {
-      const tableInfo = sqlite.pragma('table_info(books)') as Array<{
+  describe("Books table all columns", () => {
+    it("should have all required columns", () => {
+      const tableInfo = sqlite.pragma("table_info(books)") as Array<{
         name: string;
         type: string;
         notnull: number;
       }>;
 
       const columnNames = tableInfo.map((col) => col.name);
-      expect(columnNames).toContain('id');
-      expect(columnNames).toContain('title');
-      expect(columnNames).toContain('author');
-      expect(columnNames).toContain('file_path');
-      expect(columnNames).toContain('file_type');
-      expect(columnNames).toContain('content_type');
-      expect(columnNames).toContain('cover_path');
-      expect(columnNames).toContain('status');
-      expect(columnNames).toContain('visibility');
-      expect(columnNames).toContain('created_at');
-      expect(columnNames).toContain('updated_at');
+      expect(columnNames).toContain("id");
+      expect(columnNames).toContain("title");
+      expect(columnNames).toContain("author");
+      expect(columnNames).toContain("file_path");
+      expect(columnNames).toContain("file_type");
+      expect(columnNames).toContain("content_type");
+      expect(columnNames).toContain("cover_path");
+      expect(columnNames).toContain("status");
+      expect(columnNames).toContain("visibility");
+      expect(columnNames).toContain("created_at");
+      expect(columnNames).toContain("updated_at");
     });
 
-    it('should insert book with all fields populated', () => {
+    it("should insert book with all fields populated", () => {
       const now = new Date();
       const result = db
         .insert(books)
         .values({
-          title: 'Complete Book',
-          author: 'Test Author',
-          file_path: '/books/complete-book.cbz',
-          file_type: 'cbz',
-          content_type: 'manga',
-          cover_path: '/covers/complete.jpg',
-          status: 'enriched',
-          visibility: 'public',
+          title: "Complete Book",
+          author: "Test Author",
+          file_path: "/books/complete-book.cbz",
+          file_type: "cbz",
+          content_type: "manga",
+          cover_path: "/covers/complete.jpg",
+          status: "enriched",
+          visibility: "public",
           created_at: now,
           updated_at: now,
         })
@@ -572,73 +590,73 @@ describe('Books Schema (Story 1.7)', () => {
 
       expect(result).toBeDefined();
       expect(result!.id).toBeGreaterThan(0);
-      expect(result!.title).toBe('Complete Book');
-      expect(result!.author).toBe('Test Author');
-      expect(result!.file_path).toBe('/books/complete-book.cbz');
-      expect(result!.file_type).toBe('cbz');
-      expect(result!.content_type).toBe('manga');
-      expect(result!.cover_path).toBe('/covers/complete.jpg');
-      expect(result!.status).toBe('enriched');
-      expect(result!.visibility).toBe('public');
+      expect(result!.title).toBe("Complete Book");
+      expect(result!.author).toBe("Test Author");
+      expect(result!.file_path).toBe("/books/complete-book.cbz");
+      expect(result!.file_type).toBe("cbz");
+      expect(result!.content_type).toBe("manga");
+      expect(result!.cover_path).toBe("/covers/complete.jpg");
+      expect(result!.status).toBe("enriched");
+      expect(result!.visibility).toBe("public");
     });
   });
 
-  describe('File type constraint', () => {
-    it('should accept epub, cbz, cbr file types', () => {
+  describe("File type constraint", () => {
+    it("should accept epub, cbz, cbr file types", () => {
       const now = new Date();
 
       const epub = db
         .insert(books)
         .values({
-          title: 'Epub Book',
-          file_path: '/books/test-epub.epub',
-          file_type: 'epub',
-          content_type: 'book',
+          title: "Epub Book",
+          file_path: "/books/test-epub.epub",
+          file_type: "epub",
+          content_type: "book",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
-      expect(epub!.file_type).toBe('epub');
+      expect(epub!.file_type).toBe("epub");
 
       const cbz = db
         .insert(books)
         .values({
-          title: 'CBZ Manga',
-          file_path: '/books/test-cbz.cbz',
-          file_type: 'cbz',
-          content_type: 'manga',
+          title: "CBZ Manga",
+          file_path: "/books/test-cbz.cbz",
+          file_type: "cbz",
+          content_type: "manga",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
-      expect(cbz!.file_type).toBe('cbz');
+      expect(cbz!.file_type).toBe("cbz");
 
       const cbr = db
         .insert(books)
         .values({
-          title: 'CBR Manga',
-          file_path: '/books/test-cbr.cbr',
-          file_type: 'cbr',
-          content_type: 'manga',
+          title: "CBR Manga",
+          file_path: "/books/test-cbr.cbr",
+          file_type: "cbr",
+          content_type: "manga",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
-      expect(cbr!.file_type).toBe('cbr');
+      expect(cbr!.file_type).toBe("cbr");
     });
 
-    it('should reject invalid file types', () => {
+    it("should reject invalid file types", () => {
       const now = new Date();
       expect(() => {
         db.insert(books)
           .values({
-            title: 'Invalid File Type',
-            file_path: '/books/invalid.pdf',
-            file_type: 'pdf' as any,
-            content_type: 'book',
+            title: "Invalid File Type",
+            file_path: "/books/invalid.pdf",
+            file_type: "pdf" as any,
+            content_type: "book",
             created_at: now,
             updated_at: now,
           })
@@ -647,48 +665,48 @@ describe('Books Schema (Story 1.7)', () => {
     });
   });
 
-  describe('Content type constraint', () => {
-    it('should accept book and manga content types', () => {
+  describe("Content type constraint", () => {
+    it("should accept book and manga content types", () => {
       const now = new Date();
 
       const book = db
         .insert(books)
         .values({
-          title: 'Book Type',
-          file_path: '/books/book-type.epub',
-          file_type: 'epub',
-          content_type: 'book',
+          title: "Book Type",
+          file_path: "/books/book-type.epub",
+          file_type: "epub",
+          content_type: "book",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
-      expect(book!.content_type).toBe('book');
+      expect(book!.content_type).toBe("book");
 
       const manga = db
         .insert(books)
         .values({
-          title: 'Manga Type',
-          file_path: '/books/manga-type.cbz',
-          file_type: 'cbz',
-          content_type: 'manga',
+          title: "Manga Type",
+          file_path: "/books/manga-type.cbz",
+          file_type: "cbz",
+          content_type: "manga",
           created_at: now,
           updated_at: now,
         })
         .returning()
         .get();
-      expect(manga!.content_type).toBe('manga');
+      expect(manga!.content_type).toBe("manga");
     });
 
-    it('should reject invalid content types', () => {
+    it("should reject invalid content types", () => {
       const now = new Date();
       expect(() => {
         db.insert(books)
           .values({
-            title: 'Invalid Content Type',
-            file_path: '/books/invalid-content.epub',
-            file_type: 'epub',
-            content_type: 'comic' as any,
+            title: "Invalid Content Type",
+            file_path: "/books/invalid-content.epub",
+            file_type: "epub",
+            content_type: "comic" as any,
             created_at: now,
             updated_at: now,
           })
@@ -697,17 +715,17 @@ describe('Books Schema (Story 1.7)', () => {
     });
   });
 
-  describe('Unique file_path constraint', () => {
-    it('should reject duplicate file paths', () => {
+  describe("Unique file_path constraint", () => {
+    it("should reject duplicate file paths", () => {
       const now = new Date();
-      const filePath = '/books/duplicate-path.epub';
+      const filePath = "/books/duplicate-path.epub";
 
       db.insert(books)
         .values({
-          title: 'First Book',
+          title: "First Book",
           file_path: filePath,
-          file_type: 'epub',
-          content_type: 'book',
+          file_type: "epub",
+          content_type: "book",
           created_at: now,
           updated_at: now,
         })
@@ -716,10 +734,10 @@ describe('Books Schema (Story 1.7)', () => {
       expect(() => {
         db.insert(books)
           .values({
-            title: 'Duplicate Book',
+            title: "Duplicate Book",
             file_path: filePath,
-            file_type: 'epub',
-            content_type: 'book',
+            file_type: "epub",
+            content_type: "book",
             created_at: now,
             updated_at: now,
           })
@@ -728,41 +746,52 @@ describe('Books Schema (Story 1.7)', () => {
     });
   });
 
-  describe('Books indexes', () => {
-    it('should have idx_books_file_path unique index', () => {
-      const indexes = sqlite.pragma('index_list(books)') as Array<{
+  describe("Books indexes", () => {
+    it("should have idx_books_file_path unique index", () => {
+      const indexes = sqlite.pragma("index_list(books)") as Array<{
         name: string;
         unique: number;
       }>;
 
-      const filePathIndex = indexes.find((idx) => idx.name === 'idx_books_file_path');
+      const filePathIndex = indexes.find(
+        (idx) => idx.name === "idx_books_file_path",
+      );
       expect(filePathIndex).toBeDefined();
       expect(filePathIndex!.unique).toBe(1);
     });
 
-    it('should have idx_books_visibility index', () => {
-      const indexes = sqlite.pragma('index_list(books)') as Array<{
+    it("should have idx_books_visibility index", () => {
+      const indexes = sqlite.pragma("index_list(books)") as Array<{
         name: string;
         unique: number;
       }>;
 
-      const visibilityIndex = indexes.find((idx) => idx.name === 'idx_books_visibility');
+      const visibilityIndex = indexes.find(
+        (idx) => idx.name === "idx_books_visibility",
+      );
       expect(visibilityIndex).toBeDefined();
     });
   });
 
-  describe('TypeScript type inference for Book', () => {
-    it('should export Book type with correct shape', () => {
+  describe("TypeScript type inference for Book", () => {
+    it("should export Book type with correct shape", () => {
       const book: Book = {
         id: 1,
-        title: 'Test Book',
-        author: 'Author',
-        file_path: '/path/to/book.epub',
-        file_type: 'epub',
-        content_type: 'book',
-        cover_path: '/covers/test.jpg',
-        status: 'pending',
-        visibility: 'public',
+        title: "Test Book",
+        author: "Author",
+        description: "A test book",
+        genres: "Fiction",
+        series: "Test Series",
+        volume: 1,
+        isbn: "123-456-789",
+        publication_date: "2024-01-01",
+        file_path: "/path/to/book.epub",
+        file_type: "epub",
+        content_type: "book",
+        cover_path: "/covers/test.jpg",
+        status: "pending",
+        failure_reason: null,
+        visibility: "public",
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -772,12 +801,12 @@ describe('Books Schema (Story 1.7)', () => {
       expect(book.visibility).toBeDefined();
     });
 
-    it('should export NewBook type for inserts', () => {
+    it("should export NewBook type for inserts", () => {
       const newBook: NewBook = {
-        title: 'New Book',
-        file_path: '/path/new.epub',
-        file_type: 'epub',
-        content_type: 'book',
+        title: "New Book",
+        file_path: "/path/new.epub",
+        file_type: "epub",
+        content_type: "book",
         created_at: new Date(),
         updated_at: new Date(),
       };
@@ -786,40 +815,40 @@ describe('Books Schema (Story 1.7)', () => {
       expect(newBook.id).toBeUndefined();
     });
 
-    it('should export Visibility type', () => {
-      const publicVis: Visibility = 'public';
-      const privateVis: Visibility = 'private';
+    it("should export Visibility type", () => {
+      const publicVis: Visibility = "public";
+      const privateVis: Visibility = "private";
 
-      expect(publicVis).toBe('public');
-      expect(privateVis).toBe('private');
+      expect(publicVis).toBe("public");
+      expect(privateVis).toBe("private");
     });
 
-    it('should export FileType type', () => {
-      const epub: FileType = 'epub';
-      const cbz: FileType = 'cbz';
-      const cbr: FileType = 'cbr';
+    it("should export FileType type", () => {
+      const epub: FileType = "epub";
+      const cbz: FileType = "cbz";
+      const cbr: FileType = "cbr";
 
-      expect(epub).toBe('epub');
-      expect(cbz).toBe('cbz');
-      expect(cbr).toBe('cbr');
+      expect(epub).toBe("epub");
+      expect(cbz).toBe("cbz");
+      expect(cbr).toBe("cbr");
     });
 
-    it('should export ContentType type', () => {
-      const book: ContentType = 'book';
-      const manga: ContentType = 'manga';
+    it("should export ContentType type", () => {
+      const book: ContentType = "book";
+      const manga: ContentType = "manga";
 
-      expect(book).toBe('book');
-      expect(manga).toBe('manga');
+      expect(book).toBe("book");
+      expect(manga).toBe("manga");
     });
 
-    it('should export BookStatus type', () => {
-      const pending: BookStatus = 'pending';
-      const enriched: BookStatus = 'enriched';
-      const quarantine: BookStatus = 'quarantine';
+    it("should export BookStatus type", () => {
+      const pending: BookStatus = "pending";
+      const enriched: BookStatus = "enriched";
+      const quarantine: BookStatus = "quarantine";
 
-      expect(pending).toBe('pending');
-      expect(enriched).toBe('enriched');
-      expect(quarantine).toBe('quarantine');
+      expect(pending).toBe("pending");
+      expect(enriched).toBe("enriched");
+      expect(quarantine).toBe("quarantine");
     });
   });
 });

@@ -7,11 +7,16 @@ _bmad-output/
 node_modules
 dist
 .env
+.env.dev
+.env.prod
 .env.local
 .env.*.local
 .DS_Store
-data/
-!data/.gitkeep
+# Data directories - ignore contents but keep structure
+data/**/*
+!data/dev/
+!data/prod/
+!data/**/.gitkeep
 coverage
 .vscode
 *.log

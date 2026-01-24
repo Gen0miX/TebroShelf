@@ -10,4 +10,12 @@ Self-hosted eBook and Manga library manager.
 
 ## Development
 
-Run `docker-compose -f docker-compose.yml -f docker-compose.dev.yml up`
+Run `docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev up`
+
+## Production
+
+Run `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d`
+
+## Rebuild après changements
+
+Run `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d --build`

@@ -1,0 +1,12 @@
+# Development Dockerfile - hot reload with volume mounts
+FROM node:20-alpine
+
+# Install build dependencies for native modules (better-sqlite3)
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+
+EXPOSE 3000
+
+# Install deps, run migrations, create directories, then start dev server
+CMD ["sh", "-c", "npm install && mkdir -p /app/data/watch && npm run db:push && npm run dev"]
