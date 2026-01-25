@@ -19,6 +19,12 @@ export interface ScanCompletedPayload {
   duration: number;
 }
 
+export interface EnrichmentProgressPayload {
+  bookId: number;
+  step: string;
+  details?: Record<string, unknown>;
+}
+
 export interface WebSocketMessage<T = unknown> {
   type: string;
   payload: T;
@@ -36,7 +42,7 @@ export function emitFileDetected(payload: FileDetectedPayload): void {
   };
 
   logger.info("Emitting file.detected event", {
-    context: context,
+    context,
     payload: message.payload,
   });
 
@@ -54,7 +60,71 @@ export function emitScanCompleted(payload: ScanCompletedPayload): void {
   };
 
   logger.info("Emitting scan.completed event", {
-    context: context,
+    context,
+    payload: message.payload,
+  });
+
+  broadcast(message);
+}
+
+/**
+ * Emit enrichment.started event
+ */
+export function emitEnrichmentStarted(
+  bookId: number,
+  details?: Record<string, unknown>,
+): void {
+  const message: WebSocketMessage<EnrichmentProgressPayload> = {
+    type: "enrichment.started",
+    payload: { bookId, step: "started", details },
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.info("Emitting enrichment.started event", {
+    context,
+    payload: message.payload,
+  });
+
+  broadcast(message);
+}
+
+/**
+ * Emit enrichment.progress event
+ */
+export function emitEnrichmentProgress(
+  bookId: number,
+  step: string,
+  details?: Record<string, unknown>,
+): void {
+  const message: WebSocketMessage<EnrichmentProgressPayload> = {
+    type: "enrichment.progress",
+    payload: { bookId, step, details },
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.info("Emitting enrichment.progress event", {
+    context,
+    payload: message.payload,
+  });
+
+  broadcast(message);
+}
+
+/**
+ * Emit enrichment.completed event
+ */
+export function emitEnrichmentCompleted(
+  bookId: number,
+  details?: Record<string, unknown>,
+): void {
+  const message: WebSocketMessage<EnrichmentProgressPayload> = {
+    type: "enrichment.completed",
+    payload: { bookId, step: "completed", details },
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.info("Emitting enrichment.completed event", {
+    context,
     payload: message.payload,
   });
 

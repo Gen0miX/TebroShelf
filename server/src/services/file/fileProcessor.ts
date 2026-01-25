@@ -4,6 +4,7 @@ import { validateEpub } from "./epubValidator";
 import { validateCbz } from "./cbzValidator";
 import { validateCbr } from "./cbrValidator";
 import { createBook, getBookByFilePath } from "../library/bookService";
+import { processEpubExtraction } from "../metadata/extractionService";
 import { logger } from "../../utils/logger";
 import { emitFileDetected } from "../../websocket/event";
 import { ContentType, FileType } from "../../db/schema";
@@ -156,6 +157,17 @@ export async function processDetectedFile(
       // status defaults to 'pending'
       // visibility defaults to 'public'
     });
+
+    if (extension.toLowerCase() === ".epub" && book.id) {
+      // Extract metadata async
+      processEpubExtraction(book.id).catch((err) => {
+        logger.error("Background extraction failed", {
+          context,
+          bookId: book.id,
+          error: err,
+        });
+      });
+    }
 
     logger.info("Book record created", {
       context,

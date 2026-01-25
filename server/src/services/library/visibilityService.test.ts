@@ -76,6 +76,8 @@ describe('visibilityService integration', () => {
         volume INTEGER,
         isbn TEXT,
         publication_date TEXT,
+        publisher TEXT,
+        language TEXT,
         file_path TEXT NOT NULL,
         file_type TEXT NOT NULL CHECK(file_type IN ('epub', 'cbz', 'cbr')),
         content_type TEXT NOT NULL CHECK(content_type IN ('book', 'manga')),

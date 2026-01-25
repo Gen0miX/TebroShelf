@@ -72,6 +72,8 @@ export const books = sqliteTable(
     volume: integer("volume"),
     isbn: text("isbn"),
     publication_date: text("publication_date"),
+    publisher: text("publisher"),
+    language: text("language"),
     file_path: text("file_path").notNull(),
     file_type: text("file_type", { enum: ["epub", "cbz", "cbr"] }).notNull(),
     content_type: text("content_type", { enum: ["book", "manga"] }).notNull(),
@@ -118,6 +120,8 @@ export type BookMetadata = {
   volume?: number;
   isbn?: string;
   publication_date?: string;
+  publisher?: string;
+  language?: string;
   cover_path?: string;
 };
 export type QuarantineInfo = {
