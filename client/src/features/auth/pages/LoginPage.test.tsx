@@ -4,11 +4,11 @@ import { BrowserRouter } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
 import { AuthProvider } from "../context/AuthContext";
 import * as authApi from "../api/authApi";
-import * as toastModule from "@/hooks/use-toast";
+import * as toastModule from "@/shared/hooks/use-toast";
 
 // Mock modules
 vi.mock("../api/authApi");
-vi.mock("@/hooks/use-toast");
+vi.mock("@/shared/hooks/use-toast");
 
 describe("LoginPage", () => {
   const mockToast = vi.fn();

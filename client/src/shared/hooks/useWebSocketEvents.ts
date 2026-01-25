@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWebSocket } from "./useWebSocket";
 import { useAuth } from "@/features/auth";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "@/shared/hooks/use-toast";
 import type {
   WebSocketMessage,
   FileDetectedPayload,

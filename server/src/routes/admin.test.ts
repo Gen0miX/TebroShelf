@@ -22,6 +22,21 @@ vi.mock('../db', () => ({
   },
 }));
 
+// Mock the scanService module
+vi.mock('../services/file/scanService', () => ({
+  triggerForceScan: vi.fn(),
+  isScanRunning: vi.fn(),
+}));
+
+// Mock the logger
+vi.mock('../utils/logger', () => ({
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
+}));
+
 // Mock requireAuth middleware
 vi.mock('../middleware/auth', () => ({
   requireAuth: (req: Request, res: Response, next: NextFunction) => {
@@ -51,6 +66,7 @@ vi.mock('../middleware/roleGuard', () => ({
 
 import adminRouter from './admin';
 import { db } from '../db';
+import { triggerForceScan, isScanRunning } from '../services/file/scanService';
 
 const app = express();
 app.use(express.json());
@@ -239,6 +255,94 @@ describe('Admin Routes', () => {
         .send({ role: 'admin' });
 
       expect(response.status).toBe(403);
+    });
+  });
+
+  describe('POST /api/v1/admin/scan', () => {
+    // Task 8.2: Test POST /api/v1/admin/scan requires authentication
+    it('should return 401 for unauthenticated request', async () => {
+      const response = await request(app).post('/api/v1/admin/scan');
+
+      expect(response.status).toBe(401);
+      expect(response.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    // Task 8.3: Test endpoint returns 403 for regular user
+    it('should return 403 for non-admin user', async () => {
+      const response = await request(app)
+        .post('/api/v1/admin/scan')
+        .set('x-mock-user', JSON.stringify({ id: 2, username: 'sophie', role: 'user' }));
+
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+
+    // Task 8.4: Test endpoint returns 200 with scan results for admin
+    it('should return 200 with scan results for admin', async () => {
+      const mockScanResult = {
+        filesFound: 5,
+        filesProcessed: 3,
+        filesSkipped: 2,
+        errors: 0,
+        duration: 1234,
+      };
+
+      vi.mocked(isScanRunning).mockReturnValue(false);
+      vi.mocked(triggerForceScan).mockResolvedValue(mockScanResult);
+
+      const response = await request(app)
+        .post('/api/v1/admin/scan')
+        .set('x-mock-user', JSON.stringify({ id: 1, username: 'admin', role: 'admin' }));
+
+      expect(response.status).toBe(200);
+      expect(response.body.data).toEqual(mockScanResult);
+      expect(response.body.data.filesFound).toBe(5);
+      expect(response.body.data.filesProcessed).toBe(3);
+      expect(response.body.data.duration).toBe(1234);
+    });
+
+    // Task 8.5: Test endpoint returns 409 when scan already running
+    it('should return 409 when scan is already in progress', async () => {
+      vi.mocked(isScanRunning).mockReturnValue(true);
+
+      const response = await request(app)
+        .post('/api/v1/admin/scan')
+        .set('x-mock-user', JSON.stringify({ id: 1, username: 'admin', role: 'admin' }));
+
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe('SCAN_IN_PROGRESS');
+      expect(response.body.error.message).toContain('already in progress');
+    });
+
+    // Additional: Test scan service is called when no scan is running
+    it('should call triggerForceScan when no scan is running', async () => {
+      vi.mocked(isScanRunning).mockReturnValue(false);
+      vi.mocked(triggerForceScan).mockResolvedValue({
+        filesFound: 0,
+        filesProcessed: 0,
+        filesSkipped: 0,
+        errors: 0,
+        duration: 100,
+      });
+
+      await request(app)
+        .post('/api/v1/admin/scan')
+        .set('x-mock-user', JSON.stringify({ id: 1, username: 'admin', role: 'admin' }));
+
+      expect(triggerForceScan).toHaveBeenCalled();
+    });
+
+    // Additional: Test error handling when triggerForceScan throws
+    it('should handle errors from triggerForceScan gracefully', async () => {
+      vi.mocked(isScanRunning).mockReturnValue(false);
+      vi.mocked(triggerForceScan).mockRejectedValue(new Error('Scan failed unexpectedly'));
+
+      const response = await request(app)
+        .post('/api/v1/admin/scan')
+        .set('x-mock-user', JSON.stringify({ id: 1, username: 'admin', role: 'admin' }));
+
+      // Error should be passed to next() middleware (500 response depends on error handler)
+      expect(response.status).toBe(500);
     });
   });
 });
