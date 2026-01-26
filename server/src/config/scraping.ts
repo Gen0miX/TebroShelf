@@ -1,43 +1,53 @@
 /**
- * Configuration for external scraping / API calls (OpenLibrary)
+ * Configuration for external scraping / API calls (OpenLibrary, Google Books)
  * Values can be overridden via environment variables.
  */
 
-function getEnvString(name: string, fallback: string): string {
-  const value = process.env[name];
-  return value && value.length > 0 ? value : fallback;
+export interface ScrapingConfig {
+  openLibrary: {
+    apiBaseUrl: string;
+    coversBaseUrl: string;
+    rateLimit: number;
+    rateLimitWindow: number;
+    searchTimeout: number;
+    maxRetries: number;
+  };
+  googleBooks: {
+    apiBaseUrl: string;
+    apiKey: string | undefined;
+    rateLimit: number;
+    rateLimitWindow: number;
+    searchTimeout: number;
+    maxRetries: number;
+  };
 }
 
-function getEnvNumber(name: string, fallback: number): number {
-  const value = process.env[name];
-  if (!value) return fallback;
-
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
+export function getScrapingConfig(): ScrapingConfig {
+  return {
+    openLibrary: {
+      apiBaseUrl: process.env.OPENLIBRARY_API_URL || "https://openlibrary.org",
+      coversBaseUrl:
+        process.env.OPENLIBRARY_COVERS_URL || "https://covers.openlibrary.org",
+      rateLimit: parseInt(process.env.OPENLIBRARY_RATE_LIMIT || "100", 10),
+      rateLimitWindow: 5 * 60 * 1000, // 5 minutes
+      searchTimeout: parseInt(
+        process.env.OPENLIBRARY_SEARCH_TIMEOUT || "10000",
+        10,
+      ),
+      maxRetries: parseInt(process.env.OPENLIBRARY_MAX_RETRIES || "3", 10),
+    },
+    googleBooks: {
+      apiBaseUrl:
+        process.env.GOOGLE_BOOKS_API_URL ||
+        "https://www.googleapis.com/books/v1",
+      apiKey: process.env.GOOGLE_BOOKS_API_KEY,
+      rateLimit: parseInt(process.env.GOOGLE_BOOKS_RATE_LIMIT || "100", 10),
+      rateLimitWindow: 60 * 1000, // 1 minute
+      searchTimeout: parseInt(
+        process.env.GOOGLE_BOOKS_SEARCH_TIMEOUT || "10000",
+        10,
+      ),
+      maxRetries: parseInt(process.env.GOOGLE_BOOKS_MAX_RETRIES || "3", 10),
+    },
+  };
 }
-
-export const SCRAPING_CONFIG = {
-  // --- OpenLibrary endpoints ---
-  API_BASE_URL: getEnvString(
-    "OPENLIBRARY_API_BASE_URL",
-    "https://openlibrary.org",
-  ),
-
-  COVERS_BASE_URL: getEnvString(
-    "OPENLIBRARY_COVERS_BASE_URL",
-    "https://covers.openlibrary.org",
-  ),
-
-  // --- Rate limiting ---
-  // Requests per 5 minutes allowed toward the API
-  RATE_LIMIT: getEnvNumber("OPENLIBRARY_RATE_LIMIT", 100),
-
-  // --- Request behavior ---
-  // Timeout in milliseconds for search requests
-  SEARCH_TIMEOUT: getEnvNumber("OPENLIBRARY_SEARCH_TIMEOUT", 10000),
-
-  // Maximum retry attempts on failure
-  MAX_RETRIES: getEnvNumber("OPENLIBRARY_MAX_RETRIES", 3),
-} as const;
-
-export type ScrapingConfig = typeof SCRAPING_CONFIG;

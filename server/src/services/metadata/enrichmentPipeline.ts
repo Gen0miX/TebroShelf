@@ -1,6 +1,6 @@
 import { getBookById, updateBook } from "../library/bookService";
 import { enrichFromOpenLibrary } from "./enrichment/openLibraryEnrichment";
-// import {enrichFromGoogleBooks} from "./enrichment/googleBooksEnrichment";
+import { enrichFromGoogleBooks } from "./enrichment/googleBooksEnrichment";
 import { emitEnrichmentProgress } from "../../websocket/event";
 import { logger } from "../../utils/logger";
 
@@ -62,14 +62,30 @@ export async function runEnrichmentPipeline(
       return result;
     }
 
-    // 2. Google books TODO
+    logger.info("OpenLibrary failed, trying Google Books", { context, bookId });
+
+    // 2. Try Google Books fallback
+    const googleBooksResult = await enrichFromGoogleBooks(bookId);
+
+    if (googleBooksResult.success) {
+      result.success = true;
+      result.source = "googlebooks";
+      result.fieldsUpdated = googleBooksResult.fieldsUpdated;
+      result.status = "enriched";
+      return result;
+    }
 
     // 3. If all sources fail, move to quarantine
     logger.warn("All enrichment sources failed", { context, bookId });
 
+    const failureReasons = [
+      openLibraryResult.error || "No match found",
+      googleBooksResult.error || "No match found",
+    ];
+
     await updateBook(bookId, {
       status: "quarantine",
-      failure_reason: "No metadata found on any source (OpenLibrary)",
+      failure_reason: `Enrichment failed: OpenLibrary (${failureReasons[0]}), Google Books (${failureReasons[1]})`,
     });
 
     result.status = "quarantine";
@@ -77,6 +93,11 @@ export async function runEnrichmentPipeline(
 
     emitEnrichmentProgress(bookId, "enrichment-failed", {
       reason: "All sources exhausted",
+      sources: ["openlibrary", "googlebooks"],
+      errors: {
+        openlibrary: failureReasons[0],
+        googlebooks: failureReasons[1],
+      },
     });
 
     return result;

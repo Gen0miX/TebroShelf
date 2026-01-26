@@ -1,19 +1,20 @@
 import { logger } from "../../../utils/logger";
 import { RateLimiter } from "../../../utils/rateLimiter";
 import { BookMetadata } from "../../../db/schema";
-import { SCRAPING_CONFIG } from "../../../config/scraping";
+import { getScrapingConfig } from "../../../config/scraping";
 
 const context = "openLibraryClient";
+const scrapingConfig = getScrapingConfig();
 
-const API_BASE_URL = SCRAPING_CONFIG.API_BASE_URL;
-const COVERS_BASE_URL = SCRAPING_CONFIG.COVERS_BASE_URL;
-const SEARCH_TIMEOUT = SCRAPING_CONFIG.SEARCH_TIMEOUT; // 10 seconds
-const MAX_RETRIES = SCRAPING_CONFIG.MAX_RETRIES;
+const API_BASE_URL = scrapingConfig.openLibrary.apiBaseUrl;
+const COVERS_BASE_URL = scrapingConfig.openLibrary.coversBaseUrl;
+const SEARCH_TIMEOUT = scrapingConfig.openLibrary.searchTimeout; // 10 seconds
+const MAX_RETRIES = scrapingConfig.openLibrary.maxRetries;
 
 // Rate limiter: 100 requests per 5 minutes
 const rateLimiter = new RateLimiter({
-  maxTokens: SCRAPING_CONFIG.RATE_LIMIT,
-  refillIntervalMs: 5 * 60 * 1000, // 5 minutes
+  maxTokens: scrapingConfig.openLibrary.rateLimit,
+  refillIntervalMs: scrapingConfig.openLibrary.rateLimitWindow, // 5 minutes
 });
 
 export interface OpenLibraryBook {

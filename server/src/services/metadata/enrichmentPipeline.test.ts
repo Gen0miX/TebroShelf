@@ -4,19 +4,31 @@ import * as bookService from "../library/bookService";
 import * as openLibraryClient from "./sources/openLibraryClient";
 import * as coverDownloader from "./coverDownloader";
 import * as wsEvent from "../../websocket/event";
+import * as googleBooksEnrichment from "./enrichment/googleBooksEnrichment";
 
-// On mocke les accès externes (API, DB, WS)
+// On mocke les accès externes (API, DB, WS) et services
 vi.mock("../library/bookService");
 vi.mock("./sources/openLibraryClient");
 vi.mock("./coverDownloader");
 vi.mock("../../websocket/event");
 vi.mock("../../utils/logger");
+vi.mock("./enrichment/googleBooksEnrichment");
 
 describe("Enrichment Pipeline Integration", () => {
   const mockBookId = 123;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Default mocks
+    vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
+      success: false,
+      bookId: mockBookId,
+      fieldsUpdated: [],
+      source: "googlebooks",
+      error: "No match found",
+      coverUpdated: false,
+    });
   });
 
   // 9.2 & 9.5 : Test du flux complet et mise à jour de l'enregistrement
@@ -126,7 +138,68 @@ describe("Enrichment Pipeline Integration", () => {
     );
   });
 
-  // Test du cas d'échec (Quarantaine)
+  // 9.2 Test OpenLibrary fails → Google Books succeeds flow
+  it("should fallback to Google Books when OpenLibrary fails", async () => {
+    const mockBook = {
+        id: mockBookId,
+        content_type: "book",
+        title: "Clean Code",
+        isbn: "123"
+    };
+    vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
+
+    // Fail OpenLibrary
+    vi.mocked(openLibraryClient.searchByISBN).mockResolvedValue(null);
+    vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
+
+    // Succeed Google Books
+    vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
+        success: true,
+        bookId: mockBookId,
+        source: "googlebooks",
+        fieldsUpdated: ["title", "author"],
+        coverUpdated: true,
+        status: "enriched",
+    } as any);
+
+    const result = await runEnrichmentPipeline(mockBookId);
+
+    expect(result.success).toBe(true);
+    expect(result.source).toBe("googlebooks");
+    expect(result.status).toBe("enriched");
+    expect(googleBooksEnrichment.enrichFromGoogleBooks).toHaveBeenCalledWith(mockBookId);
+  });
+
+  // 9.4 Test WebSocket events for full pipeline (incl. fallback)
+  it("should emit events for full fallback flow", async () => {
+      const mockBook = { id: mockBookId, content_type: "book", isbn: "123" };
+      vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
+
+      // OL Fails
+      vi.mocked(openLibraryClient.searchByISBN).mockResolvedValue(null);
+      vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
+
+      // GB Succeeds
+      vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
+          success: true,
+          bookId: mockBookId,
+          source: "googlebooks",
+          fieldsUpdated: ["author"],
+          coverUpdated: false
+      } as any);
+
+      await runEnrichmentPipeline(mockBookId);
+
+      // Verify Start
+      expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
+          mockBookId, "pipeline-started", expect.any(Object)
+      );
+
+      // Pipeline should NOT emit "enrichment-failed" when GB succeeds.
+      expect(wsEvent.emitEnrichmentProgress).not.toHaveBeenCalledWith(
+          mockBookId, "enrichment-failed", expect.any(Object)
+      );
+  });
   it("should move book to quarantine if no metadata is found", async () => {
     const mockBook = {
       id: mockBookId,
@@ -135,10 +208,12 @@ describe("Enrichment Pipeline Integration", () => {
     };
     vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
 
-    // L'API ne trouve rien
+    // L'API OpenLibrary ne trouve rien
     vi.mocked(openLibraryClient.searchByISBN).mockResolvedValue(null);
     vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
 
+    // Google Books ne trouve rien (mocké par défaut dans beforeEach)
+    
     const result = await runEnrichmentPipeline(mockBookId);
 
     expect(result.status).toBe("quarantine");
@@ -146,7 +221,7 @@ describe("Enrichment Pipeline Integration", () => {
       mockBookId,
       expect.objectContaining({
         status: "quarantine",
-        failure_reason: expect.stringContaining("No metadata found"),
+        failure_reason: expect.stringContaining("Enrichment failed: OpenLibrary (No matching book found on OpenLibrary), Google Books (No match found)"),
       }),
     );
   });
