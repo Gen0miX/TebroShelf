@@ -8,6 +8,7 @@ import {
   processEpubExtraction,
   processComicExtraction,
 } from "../metadata/extractionService";
+import { runEnrichmentPipeline } from "../metadata/enrichmentPipeline";
 import { logger } from "../../utils/logger";
 import { emitFileDetected } from "../../websocket/event";
 import { ContentType, FileType } from "../../db/schema";
@@ -162,14 +163,16 @@ export async function processDetectedFile(
     });
 
     if (extension.toLowerCase() === ".epub" && book.id) {
-      // Extract metadata async
-      processEpubExtraction(book.id).catch((err) => {
-        logger.error("Background EPUB extraction failed", {
-          context,
-          bookId: book.id,
-          error: err,
+      // Extract metadata first, then enrich (sequential: enrichment needs extracted metadata)
+      processEpubExtraction(book.id)
+        .then(() => runEnrichmentPipeline(book.id))
+        .catch((err) => {
+          logger.error("Background EPUB extraction or enrichment failed", {
+            context,
+            bookId: book.id,
+            error: err,
+          });
         });
-      });
     } else if (
       (extension.toLowerCase() === ".cbz" ||
         extension.toLowerCase() === ".cbr") &&
