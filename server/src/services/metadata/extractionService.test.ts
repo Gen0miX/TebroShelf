@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { processEpubExtraction } from "./extractionService";
+import {
+  processEpubExtraction,
+  processComicExtraction,
+} from "./extractionService";
 import { getBookById, updateBook } from "../library/bookService";
 import {
   extractEpubMetadata,
   extractEpubCover,
 } from "./extractors/epubExtractor";
+import {
+  extractComicMetadata,
+  extractComicCover,
+} from "./extractors/comicExtractor";
 import {
   emitEnrichmentStarted,
   emitEnrichmentProgress,
@@ -16,6 +23,7 @@ vi.mock("../library/bookService");
 vi.mock("./extractors/epubExtractor");
 vi.mock("../../websocket/event");
 vi.mock("../../utils/logger");
+vi.mock("./extractors/comicExtractor");
 
 describe("extractionService", () => {
   const mockBookId = 1;
@@ -140,5 +148,119 @@ describe("extractionService", () => {
     expect(updateBook).toHaveBeenCalledWith(mockBookId, {
       status: "enriched",
     });
+  });
+});
+
+describe("comic extraction integration", () => {
+  const mockBookId = 42;
+
+  const mockComicBook = {
+    id: mockBookId,
+    file_path: "/path/to/comic.cbz",
+    file_type: "cbz",
+    title: "Original Comic",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // 8.2 + 8.4 Full flow + DB update
+  it("should perform full comic extraction flow and update book record", async () => {
+    vi.mocked(getBookById).mockResolvedValue(mockComicBook as any);
+
+    vi.mocked(extractComicMetadata).mockResolvedValue({
+      title: "Batman",
+      author: "Bob Kane",
+      description: "Dark Knight",
+      series: "DC",
+      volume: 5,
+      genres: ["Action", "Superhero"],
+      publication_date: "1940-01-01",
+    });
+
+    vi.mocked(extractComicCover).mockResolvedValue({
+      coverPath: "covers/42.jpg",
+    });
+
+    const result = await processComicExtraction(mockBookId);
+
+    // Résultat global
+    expect(result.success).toBe(true);
+    expect(result.metadataExtracted).toBe(true);
+    expect(result.coverExtracted).toBe(true);
+
+    // Vérifie update metadata
+    expect(updateBook).toHaveBeenCalledWith(
+      mockBookId,
+      expect.objectContaining({
+        title: "Batman",
+        author: "Bob Kane",
+        description: "Dark Knight",
+        series: "DC",
+        volume: 5,
+        publication_date: "1940-01-01",
+        // genres stockés en JSON string
+        genres: JSON.stringify(["Action", "Superhero"]),
+      }),
+    );
+
+    // Vérifie update cover
+    expect(updateBook).toHaveBeenCalledWith(mockBookId, {
+      cover_path: "covers/42.jpg",
+    });
+
+    // Vérifie update status enriched (Task 4.4)
+    expect(updateBook).toHaveBeenCalledWith(mockBookId, {
+      status: "enriched",
+    });
+  });
+
+  // 8.3 WebSocket events
+  it("should emit websocket events during comic extraction", async () => {
+    vi.mocked(getBookById).mockResolvedValue(mockComicBook as any);
+
+    vi.mocked(extractComicMetadata).mockResolvedValue({
+      title: "Batman",
+    } as any);
+
+    vi.mocked(extractComicCover).mockResolvedValue({
+      coverPath: null,
+    });
+
+    await processComicExtraction(mockBookId);
+
+    expect(emitEnrichmentStarted).toHaveBeenCalledWith(mockBookId, {
+      fileType: "cbz",
+    });
+
+    expect(emitEnrichmentProgress).toHaveBeenCalledWith(
+      mockBookId,
+      "metadata-extracted",
+      expect.any(Object),
+    );
+
+    // AC #7: enrichment.progress with step "extraction-complete"
+    expect(emitEnrichmentProgress).toHaveBeenCalledWith(
+      mockBookId,
+      "extraction-complete",
+      expect.any(Object),
+    );
+
+    expect(emitEnrichmentCompleted).toHaveBeenCalledWith(mockBookId, {
+      metadataExtracted: true,
+      coverExtracted: false,
+    });
+  });
+
+  // Bonus robustesse : livre absent
+  it("should handle comic book not found", async () => {
+    vi.mocked(getBookById).mockResolvedValue(null);
+
+    const result = await processComicExtraction(mockBookId);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Book not found");
+    expect(extractComicMetadata).not.toHaveBeenCalled();
   });
 });
