@@ -7,13 +7,10 @@ import {
   isConfigured,
   GoogleBooksVolume,
 } from "../sources/googleBooksClient";
-import {
-  emitEnrichmentProgress,
-  emitEnrichmentCompleted,
-} from "../../../websocket/event";
+import { emitEnrichmentProgress } from "../../../websocket/event";
 import { downloadCover } from "../coverDownloader";
 import { logger } from "../../../utils/logger";
-import { EnrichmentResult } from "./openLibraryEnrichment";
+import { EnrichmentResult } from "../utils/metadataUtils";
 
 const context = "googleBooksEnrichment";
 
@@ -153,7 +150,7 @@ export async function enrichFromGoogleBooks(
       result.success = true;
     }
 
-    emitEnrichmentCompleted(bookId, {
+    emitEnrichmentProgress(bookId, "enrichment-completed", {
       source: "googlebooks",
       fieldsUpdated: result.fieldsUpdated,
     });
@@ -231,6 +228,9 @@ function selectBestMatch(
   return bestMatch;
 }
 
+// Google Books uses word-based normalization (preserves spaces) instead of the
+// char-based metadataUtils.normalizeString, because book title matching benefits
+// from word-level Jaccard similarity rather than character-level.
 function normalizeString(s: string): string {
   return s
     .toLowerCase()

@@ -1,5 +1,6 @@
 import { getBookById } from "../library/bookService";
 import { enrichFromAniList } from "./enrichment/anilistEnrichment";
+import { enrichFromMyAnimeList } from "./enrichment/malEnrichment";
 import { emitEnrichmentProgress } from "../../websocket/event";
 import { logger } from "../../utils/logger";
 
@@ -16,8 +17,8 @@ export interface MangaPipelineResult {
 
 /**
  * Run the manga enrichment pipeline.
- * Story 3.5: AniList only.
- * Story 3.6 will add MAL fallback.
+ * Story 3.5: AniList first.
+ * Story 3.6: MyAnimeList fallback.
  * Story 3.7 will add MangaDex fallback.
  */
 export async function runMangaEnrichmentPipeline(
@@ -69,12 +70,31 @@ export async function runMangaEnrichmentPipeline(
       error: anilistResult.error,
     });
 
-    // Story 3.6 will add: enrichFromMyAnimeList(bookId)
+    // 2. Try MyAnimeList as fallback
+    const malResult = await enrichFromMyAnimeList(bookId);
+
+    if (malResult.success) {
+      result.success = true;
+      result.source = "myanimelist";
+      result.fieldsUpdated = malResult.fieldsUpdated;
+      result.status = "enriched";
+      return result;
+    }
+
+    logger.info(
+      "MyAnimeList failed, manga remains pending for MangaDex fallback",
+      {
+        context,
+        bookId,
+        malError: malResult.error,
+      },
+    );
+
     // Story 3.7 will add: enrichFromMangaDex(bookId)
     // Story 3.8 will add: quarantine on all failures
 
     // For now, leave as pending for future fallback sources
-    result.error = anilistResult.error;
+    result.error = malResult.error;
     result.status = "pending";
 
     return result;

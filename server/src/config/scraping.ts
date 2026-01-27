@@ -27,6 +27,14 @@ export interface ScrapingConfig {
     searchTimeout: number;
     maxRetries: number;
   };
+  myAnimeList: {
+    clientId: string;
+    baseUrl: string;
+    rateLimit: number;
+    rateLimitWindow: number;
+    searchTimeout: number;
+    maxRetries: number;
+  };
 }
 
 export function getScrapingConfig(): ScrapingConfig {
@@ -66,6 +74,14 @@ export function getScrapingConfig(): ScrapingConfig {
         10,
       ),
       maxRetries: parseInt(process.env.ANILIST_MAX_RETRIES || "3", 10),
+    },
+    myAnimeList: {
+      clientId: process.env.MAL_CLIENT_ID || "",
+      baseUrl: process.env.MAL_BASE_URL || "https://api.myanimelist.net/v2",
+      rateLimit: parseInt(process.env.MAL_RATE_LIMIT || "60", 10),
+      rateLimitWindow: 60 * 1000, // 1 minute
+      searchTimeout: parseInt(process.env.MAL_SEARCH_TIMEOUT || "10000", 10),
+      maxRetries: parseInt(process.env.MAL_MAX_RETRIES || "3", 10),
     },
   };
 }

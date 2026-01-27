@@ -168,9 +168,10 @@ describe("Google Books Enrichment - Integration Tests (Story 7 task 8)", () => {
         })
     );
 
-    // Verify "Completed" event (uses dedicated emitEnrichmentCompleted)
-    expect(wsEvent.emitEnrichmentCompleted).toHaveBeenCalledWith(
+    // Verify "Completed" event (uses emitEnrichmentProgress with enrichment-completed action)
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
         testBookId,
+        "enrichment-completed",
         expect.objectContaining({
             source: "googlebooks",
             fieldsUpdated: expect.arrayContaining(["author"])

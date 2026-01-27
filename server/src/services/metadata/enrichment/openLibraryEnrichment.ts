@@ -7,24 +7,17 @@ import {
   fetchWorkDescription,
   OpenLibraryBook,
 } from "../sources/openLibraryClient";
-import {
-  emitEnrichmentProgress,
-  emitEnrichmentCompleted,
-} from "../../../websocket/event";
+import { emitEnrichmentProgress } from "../../../websocket/event";
 import { downloadCover, isCoverLowQuality } from "../coverDownloader";
 import { logger } from "../../../utils/logger";
 import { BookMetadata } from "../../../db/schema";
+import {
+  EnrichmentResult,
+  normalizeString,
+  calculateSimilarity,
+} from "../utils/metadataUtils";
 
 const context = "openLibraryEnrichment";
-
-export interface EnrichmentResult {
-  success: boolean;
-  source: "openlibrary" | "googlebooks" | "extraction" | "manual";
-  bookId: number;
-  fieldsUpdated: string[];
-  coverUpdated: boolean;
-  error?: string;
-}
 
 /**
  * Enrich book metadata from Openlibrary
@@ -158,7 +151,7 @@ export async function enrichFromOpenLibrary(
       result.success = true;
     }
 
-    emitEnrichmentCompleted(bookId, {
+    emitEnrichmentProgress(bookId, "enrichment-completed", {
       source: "openlibrary",
       fieldsUpdated: result.fieldsUpdated,
     });
@@ -235,20 +228,3 @@ function selectBestMatch(
   return bestMatch;
 }
 
-function normalizeString(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function calculateSimilarity(a: string, b: string): number {
-  if (a === b) return 100;
-  if (!a || !b) return 0;
-
-  // Simple Jaccard-like similarity
-  const aChars = new Set(a.split(""));
-  const bChars = new Set(b.split(""));
-
-  const intersection = [...aChars].filter((c) => bChars.has(c)).length;
-  const union = new Set([...aChars, ...bChars]).size;
-
-  return (intersection / union) * 100;
-}

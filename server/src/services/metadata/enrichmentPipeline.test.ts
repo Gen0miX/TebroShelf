@@ -97,9 +97,10 @@ describe("Enrichment Pipeline Integration", () => {
       expect.objectContaining({ contentType: "book" }),
     );
 
-    // 2. Vérifie la complétion via emitEnrichmentCompleted (AC#6: enrichment.completed event)
-    expect(wsEvent.emitEnrichmentCompleted).toHaveBeenCalledWith(
+    // 2. Vérifie la complétion via emitEnrichmentProgress (AC#6: enrichment.completed event)
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
       mockBookId,
+      "enrichment-completed",
       expect.objectContaining({ source: "openlibrary" }),
     );
   });

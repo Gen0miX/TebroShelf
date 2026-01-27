@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   enrichFromAniList,
-  cleanTitle,
   selectBestMatch,
-  normalizeString,
-  calculateSimilarity,
 } from "./anilistEnrichment";
+import { cleanTitle, normalizeString, calculateSimilarity } from "../utils/metadataUtils";
 import * as bookService from "../../library/bookService";
 import * as anilistClient from "../sources/anilistClient";
 import * as coverDownloader from "../coverDownloader";
@@ -612,10 +610,14 @@ describe("AniList Enrichment Service", () => {
 
     await enrichFromAniList(mockBookId);
 
-    expect(wsEvent.emitEnrichmentStarted).toHaveBeenCalledWith(mockBookId, {
-      source: "anilist",
-      title: "Test Manga",
-    });
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
+      mockBookId,
+      "anilist-search-started",
+      {
+        source: "anilist",
+        title: "Test Manga",
+      },
+    );
   });
 
   it("should emit enrichment.progress event when match is found", async () => {
@@ -700,8 +702,9 @@ describe("AniList Enrichment Service", () => {
 
     await enrichFromAniList(mockBookId);
 
-    expect(wsEvent.emitEnrichmentCompleted).toHaveBeenCalledWith(
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
       mockBookId,
+      "enrichment-completed",
       expect.objectContaining({
         source: "anilist",
         fieldsUpdated: expect.any(Array),

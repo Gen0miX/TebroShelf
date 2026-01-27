@@ -3,38 +3,46 @@ import {
   searchManga,
   mapToBookMetadata,
   getCoverUrl,
-  AniListMedia,
-} from "../sources/anilistClient";
+  MalMangaNode,
+} from "../sources/malClient";
 import { emitEnrichmentProgress } from "../../../websocket/event";
+import { downloadCover } from "../coverDownloader";
 import {
   EnrichmentResult,
   cleanTitle,
   normalizeString,
   calculateSimilarity,
 } from "../utils/metadataUtils";
-import { downloadCover } from "../coverDownloader";
 import { logger } from "../../../utils/logger";
+import { getScrapingConfig } from "../../../config/scraping";
 
-const context = "anilistEnrichment";
+const context = "malEnrichment";
 
 /**
- * Enrich manga metadata from AniList.
+ * Enrich manga metadata from MyAnimeList
  */
-export async function enrichFromAniList(
+export async function enrichFromMyAnimeList(
   bookId: number,
 ): Promise<EnrichmentResult> {
-  logger.info("Starting AniList enrichment", { context, bookId });
+  logger.info("Starting MyAnimeList enrichment", { context, bookId });
 
   const result: EnrichmentResult = {
     success: false,
-    source: "anilist",
+    source: "myanimelist",
     bookId,
     fieldsUpdated: [],
     coverUpdated: false,
   };
 
+  // Check API key availability
+  const config = getScrapingConfig().myAnimeList;
+  if (!config.clientId) {
+    result.error = "MAL_CLIENT_ID not configured";
+    logger.warn("MAL enrichment skipped: no client ID", { context, bookId });
+    return result;
+  }
+
   try {
-    // 1. Load book record
     const book = await getBookById(bookId);
     if (!book) {
       result.error = "Book not found";
@@ -42,47 +50,43 @@ export async function enrichFromAniList(
     }
 
     if (book.content_type !== "manga") {
-      result.error = "Not a manga (use ebook enrichment for books)";
+      result.error = "Not a manga";
       return result;
     }
 
-    emitEnrichmentProgress(bookId, "anilist-search-started", {
-      source: "anilist",
-      title: book.title,
-    });
+    emitEnrichmentProgress(bookId, "mal-search-started", { title: book.title });
 
-    // 2. Clean and search title
+    // Clean and search title
     const searchTitle = cleanTitle(book.title);
     const results = await searchManga(searchTitle);
 
     if (results.length === 0) {
-      logger.info("No AniList match found", { context, bookId, searchTitle });
-      emitEnrichmentProgress(bookId, "anilist-no-match", { title: book.title });
-      result.error = "No matching manga found on AniList";
+      logger.info("No MAL match found", { context, bookId, searchTitle });
+      emitEnrichmentProgress(bookId, "mal-no-match", {});
+      result.error = "No matching manga found on MyAnimeList";
       return result;
     }
 
-    // 3. Select best match using title similarity
+    // Select best match
     const match = selectBestMatch(results, searchTitle);
 
     if (!match) {
-      result.error = "No sufficiently similar match found on AniList";
-      emitEnrichmentProgress(bookId, "anilist-no-match", { title: book.title });
+      result.error = "No sufficiently similar match found on MyAnimeList";
+      emitEnrichmentProgress(bookId, "mal-no-match", {});
       return result;
     }
 
-    emitEnrichmentProgress(bookId, "anilist-match-found", {
-      matchTitle:
-        match.title.english || match.title.romaji || match.title.native,
+    emitEnrichmentProgress(bookId, "mal-match-found", {
+      matchTitle: match.title,
       matchId: match.id,
     });
 
-    // 4. Map to BookMetadata
+    // Map to BookMetadata
     const metadata = mapToBookMetadata(match);
 
-    // 5. Download cover if available and not already present
-    if (match.coverImage && !book.cover_path) {
-      const coverUrl = getCoverUrl(match.coverImage);
+    // Download cover if available and not already present
+    if (match.main_picture && !book.cover_path) {
+      const coverUrl = getCoverUrl(match.main_picture);
       if (coverUrl) {
         const coverPath = await downloadCover(coverUrl, bookId);
         if (coverPath) {
@@ -92,7 +96,7 @@ export async function enrichFromAniList(
       }
     }
 
-    // 6. Determine which fields to update (only missing or improved)
+    // Update only missing fields
     const updateData: Record<string, unknown> = {};
 
     if (metadata.title && !book.title) {
@@ -120,32 +124,27 @@ export async function enrichFromAniList(
       result.fieldsUpdated.push("cover_path");
     }
 
-    // 7. Update book record
+    // Update book record
     if (Object.keys(updateData).length > 0) {
-      await updateBook(bookId, {
-        ...updateData,
-        status: "enriched",
-      });
+      await updateBook(bookId, { ...updateData, status: "enriched" });
       result.success = true;
     } else {
-      // No new fields to update, but we found a match
       await updateBook(bookId, { status: "enriched" });
       result.success = true;
     }
 
     emitEnrichmentProgress(bookId, "enrichment-completed", {
-      source: "anilist",
+      source: "myanimelist",
       fieldsUpdated: result.fieldsUpdated,
     });
 
-    logger.info("AniList enrichment completed", { context, result });
-
+    logger.info("MAL enrichment completed", { context, result });
     return result;
   } catch (err) {
     result.error = String(err);
-    logger.error("AniList enrichment failed", { context, bookId, error: err });
+    logger.error("MAL enrichment failed", { context, bookId, error: err });
     emitEnrichmentProgress(bookId, "enrichment-failed", {
-      source: "anilist",
+      source: "myanimelist",
       error: String(err),
     });
     return result;
@@ -153,12 +152,13 @@ export async function enrichFromAniList(
 }
 
 /**
- * Select best match using multi-variant title similarity
+ * Select best match using multi-variant title similarity.
+ * Compares against title, alternative_titles.en, .ja, and synonyms.
  */
-export function selectBestMatch(
-  results: AniListMedia[],
+function selectBestMatch(
+  results: MalMangaNode[],
   targetTitle: string,
-): AniListMedia | null {
+): MalMangaNode | null {
   if (results.length === 0) return null;
 
   const normalizedTarget = normalizeString(targetTitle);
@@ -166,16 +166,18 @@ export function selectBestMatch(
   let bestMatch = results[0];
   let bestScore = 0;
 
-  for (const media of results) {
-    let score = 0;
+  for (const manga of results) {
+    const variants: string[] = [manga.title];
 
-    // Compare against all title variants and take best
-    const variants = [
-      media.title.english,
-      media.title.romaji,
-      media.title.native,
-      ...(media.synonyms || []),
-    ].filter(Boolean) as string[];
+    if (manga.alternative_titles) {
+      if (manga.alternative_titles.en)
+        variants.push(manga.alternative_titles.en);
+      if (manga.alternative_titles.ja)
+        variants.push(manga.alternative_titles.ja);
+      if (manga.alternative_titles.synonyms) {
+        variants.push(...manga.alternative_titles.synonyms);
+      }
+    }
 
     let bestTitleScore = 0;
     for (const variant of variants) {
@@ -188,30 +190,29 @@ export function selectBestMatch(
       }
     }
 
-    score += bestTitleScore * 80; // Title weight: 80%
+    let score = bestTitleScore * 80; // Title weight: 80%
 
-    // Bonus for MANGA format (vs NOVEL, ONE_SHOT)
-    if (media.format === "MANGA") {
+    // Bonus for manga media type (vs novel, one_shot)
+    if (manga.media_type === "manga") {
       score += 10;
     }
 
-    // Bonus for popularity (averageScore)
-    if (media.averageScore) {
-      score += (media.averageScore / 100) * 10; // Up to 10 points
-    }
+    // Bonus for having more metadata
+    if (manga.synopsis) score += 5;
+    if (manga.main_picture) score += 5;
 
     if (score > bestScore) {
       bestScore = score;
-      bestMatch = media;
+      bestMatch = manga;
     }
   }
 
   // Minimum score threshold
   if (bestScore < 40) {
-    logger.warn("Best AniList match score too low", {
+    logger.warn("Best MAL match score too low", {
       context,
       bestScore,
-      bestMatch: bestMatch.title.english || bestMatch.title.romaji,
+      bestMatch: bestMatch.title,
     });
     return null;
   }

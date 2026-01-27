@@ -191,8 +191,9 @@ describe("OpenLibrary Enrichment Service", () => {
 
     await enrichFromOpenLibrary(mockBookId);
 
-    expect(wsEvent.emitEnrichmentCompleted).toHaveBeenCalledWith(
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
       mockBookId,
+      "enrichment-completed",
       expect.objectContaining({ source: "openlibrary" }),
     );
   });
