@@ -20,6 +20,13 @@ export interface ScrapingConfig {
     searchTimeout: number;
     maxRetries: number;
   };
+  aniList: {
+    graphqlEndpoint: string;
+    rateLimit: number;
+    rateLimitWindow: number;
+    searchTimeout: number;
+    maxRetries: number;
+  };
 }
 
 export function getScrapingConfig(): ScrapingConfig {
@@ -48,6 +55,17 @@ export function getScrapingConfig(): ScrapingConfig {
         10,
       ),
       maxRetries: parseInt(process.env.GOOGLE_BOOKS_MAX_RETRIES || "3", 10),
+    },
+    aniList: {
+      graphqlEndpoint:
+        process.env.ANILIST_GRAPHQL_ENDPOINT || "https://graphql.anilist.co",
+      rateLimit: parseInt(process.env.ANILIST_RATE_LIMIT || "90", 10),
+      rateLimitWindow: 60 * 1000, // 1 minute
+      searchTimeout: parseInt(
+        process.env.ANILIST_SEARCH_TIMEOUT || "10000",
+        10,
+      ),
+      maxRetries: parseInt(process.env.ANILIST_MAX_RETRIES || "3", 10),
     },
   };
 }

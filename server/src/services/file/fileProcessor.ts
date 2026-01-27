@@ -12,6 +12,7 @@ import { runEnrichmentPipeline } from "../metadata/enrichmentPipeline";
 import { logger } from "../../utils/logger";
 import { emitFileDetected } from "../../websocket/event";
 import { ContentType, FileType } from "../../db/schema";
+import { runMangaEnrichmentPipeline } from "../metadata/mangaEnrichmentPipeline";
 
 export interface ProcessResult {
   success: boolean;
@@ -178,14 +179,16 @@ export async function processDetectedFile(
         extension.toLowerCase() === ".cbr") &&
       book.id
     ) {
-      // Extract metadata async
-      processComicExtraction(book.id).catch((err) => {
-        logger.error("Background comic extraction failed", {
-          context,
-          bookId: book.id,
-          error: err,
+      // Extract metadata first, then enrich (sequential: enrichment needs extracted metadata)
+      processComicExtraction(book.id)
+        .then(() => runMangaEnrichmentPipeline(book.id))
+        .catch((err) => {
+          logger.error("Background comic extraction or enrichment failed", {
+            context,
+            bookId: book.id,
+            error: err,
+          });
         });
-      });
     }
 
     logger.info("Book record created", {
