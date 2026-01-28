@@ -78,6 +78,7 @@ export const books = sqliteTable(
     file_type: text("file_type", { enum: ["epub", "cbz", "cbr"] }).notNull(),
     content_type: text("content_type", { enum: ["book", "manga"] }).notNull(),
     cover_path: text("cover_path"),
+    publication_status: text("publication_status"), // "ongoing", "completed", "hiatus", "cancelled"
     status: text("status", { enum: ["pending", "enriched", "quarantine"] })
       .notNull()
       .default("pending"),
@@ -120,6 +121,7 @@ export type BookMetadata = {
   volume?: number;
   isbn?: string;
   publication_date?: string;
+  publication_status?: string;
   publisher?: string;
   language?: string;
   cover_path?: string;

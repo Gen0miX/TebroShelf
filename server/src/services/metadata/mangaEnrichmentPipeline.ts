@@ -1,6 +1,7 @@
 import { getBookById } from "../library/bookService";
 import { enrichFromAniList } from "./enrichment/anilistEnrichment";
 import { enrichFromMyAnimeList } from "./enrichment/malEnrichment";
+import { enrichFromMangaDex } from "./enrichment/mangadexEnrichment";
 import { emitEnrichmentProgress } from "../../websocket/event";
 import { logger } from "../../utils/logger";
 
@@ -19,7 +20,7 @@ export interface MangaPipelineResult {
  * Run the manga enrichment pipeline.
  * Story 3.5: AniList first.
  * Story 3.6: MyAnimeList fallback.
- * Story 3.7 will add MangaDex fallback.
+ * Story 3.7: MangaDex final fallback.
  */
 export async function runMangaEnrichmentPipeline(
   bookId: number,
@@ -90,11 +91,26 @@ export async function runMangaEnrichmentPipeline(
       },
     );
 
-    // Story 3.7 will add: enrichFromMangaDex(bookId)
+    // 3. Try MangaDex as final fallback (NEW - Story 3.7)
+    const mangadexResult = await enrichFromMangaDex(bookId);
+    if (mangadexResult.success) {
+      result.success = true;
+      result.source = "mangadex";
+      result.fieldsUpdated = mangadexResult.fieldsUpdated;
+      result.status = "enriched";
+      return result;
+    }
+
+    logger.warn("All manga sources exhausted", {
+      context,
+      bookId,
+      mangadexError: mangadexResult.error,
+    });
+
     // Story 3.8 will add: quarantine on all failures
 
     // For now, leave as pending for future fallback sources
-    result.error = malResult.error;
+    result.error = mangadexResult.error;
     result.status = "pending";
 
     return result;

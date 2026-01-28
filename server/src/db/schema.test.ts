@@ -439,6 +439,7 @@ describe("Books Schema (Story 1.7)", () => {
         file_type TEXT NOT NULL CHECK(file_type IN ('epub', 'cbz', 'cbr')),
         content_type TEXT NOT NULL CHECK(content_type IN ('book', 'manga')),
         cover_path TEXT,
+        publication_status TEXT,
         status TEXT DEFAULT 'pending' NOT NULL CHECK(status IN ('pending', 'enriched', 'quarantine')),
         failure_reason TEXT,
         visibility TEXT DEFAULT 'public' NOT NULL CHECK(visibility IN ('public', 'private')),

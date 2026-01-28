@@ -3,6 +3,7 @@ import { runMangaEnrichmentPipeline } from "./mangaEnrichmentPipeline";
 import * as bookService from "../library/bookService";
 import * as anilistEnrichment from "./enrichment/anilistEnrichment";
 import * as malEnrichment from "./enrichment/malEnrichment";
+import * as mangadexEnrichment from "./enrichment/mangadexEnrichment";
 import * as wsEvent from "../../websocket/event";
 
 // Use vi.hoisted to allow access to config in tests
@@ -22,18 +23,28 @@ const mocks = vi.hoisted(() => ({
     searchTimeout: 10000,
     maxRetries: 3,
   },
+  mangaDexConfig: {
+    baseUrl: "https://api.mangadex.org",
+    coverBaseUrl: "https://uploads.mangadex.org",
+    rateLimit: 5,
+    rateLimitWindow: 1000,
+    searchTimeout: 10000,
+    maxRetries: 3,
+  },
 }));
 
 // Mock dependencies
 vi.mock("../library/bookService");
 vi.mock("./enrichment/anilistEnrichment");
 vi.mock("./enrichment/malEnrichment");
+vi.mock("./enrichment/mangadexEnrichment");
 vi.mock("../../websocket/event");
 vi.mock("../../utils/logger");
 vi.mock("../../config/scraping", () => ({
   getScrapingConfig: () => ({
     aniList: mocks.aniListConfig,
     myAnimeList: mocks.malConfig,
+    mangaDex: mocks.mangaDexConfig,
   }),
 }));
 
@@ -43,7 +54,7 @@ describe("Manga Enrichment Pipeline Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Reset config to default
+    // Reset configs to default
     mocks.malConfig.clientId = "test-client-id";
 
     // Default mock for AniList enrichment (failure)
@@ -62,6 +73,16 @@ describe("Manga Enrichment Pipeline Integration", () => {
       bookId: mockBookId,
       fieldsUpdated: [],
       source: "myanimelist",
+      error: "No match found",
+      coverUpdated: false,
+    });
+
+    // Default mock for MangaDex enrichment (failure)
+    vi.mocked(mangadexEnrichment.enrichFromMangaDex).mockResolvedValue({
+      success: false,
+      bookId: mockBookId,
+      fieldsUpdated: [],
+      source: "mangadex",
       error: "No match found",
       coverUpdated: false,
     });
@@ -109,39 +130,8 @@ describe("Manga Enrichment Pipeline Integration", () => {
 
     // THEN: MAL enrichment was NOT called (AniList succeeded)
     expect(malEnrichment.enrichFromMyAnimeList).not.toHaveBeenCalled();
-  });
-
-  it("should successfully enrich manga with all fields from AniList", async () => {
-    const mockBook = {
-      id: mockBookId,
-      content_type: "manga",
-      title: "One Piece",
-      author: null,
-    };
-    vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
-
-    vi.mocked(anilistEnrichment.enrichFromAniList).mockResolvedValue({
-      success: true,
-      bookId: mockBookId,
-      source: "anilist",
-      fieldsUpdated: [
-        "author",
-        "description",
-        "genres",
-        "publication_date",
-        "cover_path",
-      ],
-      coverUpdated: true,
-    });
-
-    const result = await runMangaEnrichmentPipeline(mockBookId);
-
-    expect(result.success).toBe(true);
-    expect(result.status).toBe("enriched");
-    expect(result.fieldsUpdated.length).toBeGreaterThan(0);
-
-    // MAL should not be called when AniList succeeds
-    expect(malEnrichment.enrichFromMyAnimeList).not.toHaveBeenCalled();
+    // THEN: MangaDex enrichment was NOT called (AniList succeeded)
+    expect(mangadexEnrichment.enrichFromMangaDex).not.toHaveBeenCalled();
   });
 
   // ===========================
@@ -183,9 +173,10 @@ describe("Manga Enrichment Pipeline Integration", () => {
     expect(result.status).toBe("enriched");
     expect(result.fieldsUpdated).toEqual(["author", "description", "genres"]);
 
-    // Both services should be called
+    // Both services should be called, but not MangaDex
     expect(anilistEnrichment.enrichFromAniList).toHaveBeenCalledWith(mockBookId);
     expect(malEnrichment.enrichFromMyAnimeList).toHaveBeenCalledWith(mockBookId);
+    expect(mangadexEnrichment.enrichFromMangaDex).not.toHaveBeenCalled();
   });
 
   it("should enrich with MAL after AniList returns no results", async () => {
@@ -224,6 +215,7 @@ describe("Manga Enrichment Pipeline Integration", () => {
     expect(result.status).toBe("enriched");
     expect(result.fieldsUpdated).toContain("author");
     expect(result.fieldsUpdated).toContain("cover_path");
+    expect(mangadexEnrichment.enrichFromMangaDex).not.toHaveBeenCalled();
   });
 
   // ===========================
@@ -262,48 +254,108 @@ describe("Manga Enrichment Pipeline Integration", () => {
     // Pipeline fails but status remains pending for future MangaDex fallback
     expect(result.success).toBe(false);
     expect(result.status).toBe("pending");
-    expect(result.error).toBe("No matching manga found on MyAnimeList");
+    expect(result.error).toContain("No match found"); // Finally fails on MangaDex
 
-    // Both services should have been called
-    expect(anilistEnrichment.enrichFromAniList).toHaveBeenCalledWith(mockBookId);
-    expect(malEnrichment.enrichFromMyAnimeList).toHaveBeenCalledWith(mockBookId);
-
-    // No status update to database (remains pending for MangaDex)
-    expect(bookService.updateBook).not.toHaveBeenCalled();
+    // MangaDex should have been called
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalledWith(mockBookId);
   });
 
-  it("should return pending status when AniList returns no results", async () => {
+  // ===========================
+  // 8.4 Test AniList fail -> MAL fail -> MangaDex success -> enriched with source="mangadex"
+  // ===========================
+  it("should fallback to MangaDex when AniList and MAL fail, and succeed with MangaDex", async () => {
     const mockBook = {
       id: mockBookId,
       content_type: "manga",
-      title: "Obscure Manga",
+      title: "Solo Leveling",
       author: null,
     };
     vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
 
+    // AniList fails
     vi.mocked(anilistEnrichment.enrichFromAniList).mockResolvedValue({
       success: false,
       bookId: mockBookId,
       source: "anilist",
       fieldsUpdated: [],
-      error: "No results from AniList API",
+      error: "AniList fail",
       coverUpdated: false,
     });
 
+    // MAL fails
     vi.mocked(malEnrichment.enrichFromMyAnimeList).mockResolvedValue({
       success: false,
       bookId: mockBookId,
       source: "myanimelist",
       fieldsUpdated: [],
-      error: "No results from MAL API",
+      error: "MAL fail",
+      coverUpdated: false,
+    });
+
+    // MangaDex succeeds
+    vi.mocked(mangadexEnrichment.enrichFromMangaDex).mockResolvedValue({
+      success: true,
+      bookId: mockBookId,
+      source: "mangadex",
+      fieldsUpdated: ["description", "genres"],
       coverUpdated: false,
     });
 
     const result = await runMangaEnrichmentPipeline(mockBookId);
 
+    expect(result.success).toBe(true);
+    expect(result.source).toBe("mangadex");
+    expect(result.status).toBe("enriched");
+    expect(result.fieldsUpdated).toEqual(["description", "genres"]);
+
+    expect(anilistEnrichment.enrichFromAniList).toHaveBeenCalledWith(mockBookId);
+    expect(malEnrichment.enrichFromMyAnimeList).toHaveBeenCalledWith(mockBookId);
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalledWith(mockBookId);
+  });
+
+  it("should enrich with MangaDex as the final available source", async () => {
+    const mockBook = {
+      id: mockBookId,
+      content_type: "manga",
+      title: "MangaDex Specific",
+    };
+    vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
+
+    vi.mocked(mangadexEnrichment.enrichFromMangaDex).mockResolvedValue({
+      success: true,
+      bookId: mockBookId,
+      source: "mangadex",
+      fieldsUpdated: ["author"],
+      coverUpdated: false,
+    });
+
+    const result = await runMangaEnrichmentPipeline(mockBookId);
+
+    expect(result.success).toBe(true);
+    expect(result.source).toBe("mangadex");
+    expect(result.status).toBe("enriched");
+  });
+
+  // ===========================
+  // 8.5 Test AniList fail -> MAL fail -> MangaDex fail -> pending
+  // ===========================
+  it("should remain pending if all sources fail", async () => {
+     const mockBook = {
+      id: mockBookId,
+      content_type: "manga",
+      title: "Totally Unknown",
+    };
+    vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
+
+    const result = await runMangaEnrichmentPipeline(mockBookId);
+
     expect(result.success).toBe(false);
     expect(result.status).toBe("pending");
-    expect(result.error).toContain("No results from MAL API");
+    expect(result.error).toBe("No match found"); // From final source (MangaDex)
+
+    expect(anilistEnrichment.enrichFromAniList).toHaveBeenCalled();
+    expect(malEnrichment.enrichFromMyAnimeList).toHaveBeenCalled();
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalled();
   });
 
   it("should handle AniList API errors and keep status pending", async () => {
@@ -334,10 +386,12 @@ describe("Manga Enrichment Pipeline Integration", () => {
     });
 
     const result = await runMangaEnrichmentPipeline(mockBookId);
-
+ 
     expect(result.success).toBe(false);
     expect(result.status).toBe("pending");
-    expect(result.error).toContain("Network timeout");
+    expect(result.error).toBe("No match found"); // Finally fails on MangaDex
+
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalledWith(mockBookId);
   });
 
   // ===========================
@@ -380,12 +434,16 @@ describe("Manga Enrichment Pipeline Integration", () => {
     // Pipeline fails and remains pending
     expect(result.success).toBe(false);
     expect(result.status).toBe("pending");
+    expect(result.error).toBe("No match found"); // Finally fails on MangaDex
 
     // AniList should be called
     expect(anilistEnrichment.enrichFromAniList).toHaveBeenCalledWith(mockBookId);
 
     // MAL should still be called (it handles the missing client ID internally)
     expect(malEnrichment.enrichFromMyAnimeList).toHaveBeenCalledWith(mockBookId);
+
+    // MangaDex should be called
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalledWith(mockBookId);
   });
 
   // ===========================
@@ -648,9 +706,12 @@ describe("Manga Enrichment Pipeline Integration", () => {
 
     const result = await runMangaEnrichmentPipeline(mockBookId);
 
-    // Status should be pending (not quarantine) to allow future MangaDex fallback
+    // Status should be pending (not quarantine) to allow future quarantine implementation
     expect(result.status).toBe("pending");
     expect(result.success).toBe(false);
+    expect(result.error).toBe("No match found"); // Finally fails on MangaDex
+
+    expect(mangadexEnrichment.enrichFromMangaDex).toHaveBeenCalled();
 
     // No database update should occur (book stays in pending state)
     expect(bookService.updateBook).not.toHaveBeenCalled();

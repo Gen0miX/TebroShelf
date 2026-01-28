@@ -1,0 +1,1 @@
+ALTER TABLE `books` ADD `publication_status` text;
