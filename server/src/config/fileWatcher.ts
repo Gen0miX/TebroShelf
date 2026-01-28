@@ -16,6 +16,7 @@ export const fileWatcherConfigSchema = z.object({
       pollInterval: z.number().min(50, "pollInterval must be at least 50ms"),
     })
     .default({ stabilityThreshold: 2000, pollInterval: 100 }),
+  usePolling: z.boolean().default(false),
 });
 
 export type FileWatcherConfig = z.infer<typeof fileWatcherConfigSchema>;
@@ -28,5 +29,6 @@ export function getFileWatcherConfig(): FileWatcherConfig {
   }
   return fileWatcherConfigSchema.parse({
     watchDir,
+    usePolling: process.env.USE_POLLING === "true",
   });
 }

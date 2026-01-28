@@ -1,10 +1,10 @@
-import { getBookById, updateBook } from "../library/bookService";
+import { getBookById } from "../library/bookService";
 import { enrichFromOpenLibrary } from "./enrichment/openLibraryEnrichment";
 import { enrichFromGoogleBooks } from "./enrichment/googleBooksEnrichment";
 import { emitEnrichmentProgress } from "../../websocket/event";
 import { logger } from "../../utils/logger";
 
-const context = "enrichmentPipeline";
+const context = "ebookEnrichmentPipeline";
 
 export interface PipelineResult {
   success: boolean;
@@ -18,7 +18,7 @@ export interface PipelineResult {
 /**
  * Run the enrichment pipeline for an ebook.
  */
-export async function runEnrichmentPipeline(
+export async function runEbookEnrichmentPipeline(
   bookId: number,
 ): Promise<PipelineResult> {
   logger.info("Starting enrichment pipeline", { context, bookId });
@@ -75,30 +75,10 @@ export async function runEnrichmentPipeline(
       return result;
     }
 
-    // 3. If all sources fail, move to quarantine
+    // 3. All sources failed — return failure for orchestrator to handle quarantine
     logger.warn("All enrichment sources failed", { context, bookId });
 
-    const failureReasons = [
-      openLibraryResult.error || "No match found",
-      googleBooksResult.error || "No match found",
-    ];
-
-    await updateBook(bookId, {
-      status: "quarantine",
-      failure_reason: `Enrichment failed: OpenLibrary (${failureReasons[0]}), Google Books (${failureReasons[1]})`,
-    });
-
-    result.status = "quarantine";
-    result.error = "No metadata found on any source";
-
-    emitEnrichmentProgress(bookId, "enrichment-failed", {
-      reason: "All sources exhausted",
-      sources: ["openlibrary", "googlebooks"],
-      errors: {
-        openlibrary: failureReasons[0],
-        googlebooks: failureReasons[1],
-      },
-    });
+    result.error = `OpenLibrary: ${openLibraryResult.error || "No match found"}. Google Books: ${googleBooksResult.error || "No match found"}`;
 
     return result;
   } catch (err) {

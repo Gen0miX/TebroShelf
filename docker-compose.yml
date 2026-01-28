@@ -27,6 +27,7 @@ services:
       - SESSION_CLEANUP_INTERVAL_MS=${SESSION_CLEANUP_INTERVAL_MS:-3600000}
       - SLIDING_EXPIRATION=${SLIDING_EXPIRATION:-false}
       - WATCH_DIR=${WATCH_DIR:-/app/data/watch}
+      - USE_POLLING=${USE_POLLING:-false}
     networks:
       - tebroshelf-network
 

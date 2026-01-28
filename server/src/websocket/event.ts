@@ -25,6 +25,13 @@ export interface EnrichmentProgressPayload {
   details?: Record<string, unknown>;
 }
 
+export interface EnrichmentFailedPayload {
+  bookId: number;
+  failureReason: string;
+  contentType: string;
+  sourcesAttempted: string[];
+}
+
 export interface WebSocketMessage<T = unknown> {
   type: string;
   payload: T;
@@ -124,6 +131,29 @@ export function emitEnrichmentCompleted(
   };
 
   logger.info("Emitting enrichment.completed event", {
+    context,
+    payload: message.payload,
+  });
+
+  broadcast(message);
+}
+
+/**
+ * Emit enrichment.failed event when a book enters quarantine
+ */
+export function emitEnrichmentFailed(
+  bookId: number,
+  failureReason: string,
+  contentType: string,
+  sourcesAttempted: string[],
+): void {
+  const message: WebSocketMessage<EnrichmentFailedPayload> = {
+    type: "enrichment.failed",
+    payload: { bookId, failureReason, contentType, sourcesAttempted },
+    timestamp: new Date().toISOString(),
+  };
+
+  logger.info("Emitting enrichment.failed event", {
     context,
     payload: message.payload,
   });

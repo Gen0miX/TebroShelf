@@ -4,15 +4,10 @@ import { validateEpub } from "./epubValidator";
 import { validateCbz } from "./cbzValidator";
 import { validateCbr } from "./cbrValidator";
 import { createBook, getBookByFilePath } from "../library/bookService";
-import {
-  processEpubExtraction,
-  processComicExtraction,
-} from "../metadata/extractionService";
-import { runEnrichmentPipeline } from "../metadata/enrichmentPipeline";
 import { logger } from "../../utils/logger";
 import { emitFileDetected } from "../../websocket/event";
 import { ContentType, FileType } from "../../db/schema";
-import { runMangaEnrichmentPipeline } from "../metadata/mangaEnrichmentPipeline";
+import { orchestrateEnrichment } from "../metadata/enrichmentOrchestrator";
 
 export interface ProcessResult {
   success: boolean;
@@ -163,33 +158,13 @@ export async function processDetectedFile(
       // visibility defaults to 'public'
     });
 
-    if (extension.toLowerCase() === ".epub" && book.id) {
-      // Extract metadata first, then enrich (sequential: enrichment needs extracted metadata)
-      processEpubExtraction(book.id)
-        .then(() => runEnrichmentPipeline(book.id))
-        .catch((err) => {
-          logger.error("Background EPUB extraction or enrichment failed", {
-            context,
-            bookId: book.id,
-            error: err,
-          });
-        });
-    } else if (
-      (extension.toLowerCase() === ".cbz" ||
-        extension.toLowerCase() === ".cbr") &&
-      book.id
-    ) {
-      // Extract metadata first, then enrich (sequential: enrichment needs extracted metadata)
-      processComicExtraction(book.id)
-        .then(() => runMangaEnrichmentPipeline(book.id))
-        .catch((err) => {
-          logger.error("Background comic extraction or enrichment failed", {
-            context,
-            bookId: book.id,
-            error: err,
-          });
-        });
-    }
+    orchestrateEnrichment(book.id).catch((err) => {
+      logger.error("Background enrichment orchestration failed", {
+        context,
+        bookId: book.id,
+        error: err,
+      });
+    });
 
     logger.info("Book record created", {
       context,

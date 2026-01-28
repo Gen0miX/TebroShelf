@@ -7,11 +7,7 @@ import {
   extractComicMetadata,
   extractComicCover,
 } from "./extractors/comicExtractor";
-import {
-  emitEnrichmentStarted,
-  emitEnrichmentProgress,
-  emitEnrichmentCompleted,
-} from "../../websocket/event";
+import { emitEnrichmentProgress } from "../../websocket/event";
 import { logger } from "../../utils/logger";
 
 const context = "extractionService";
@@ -51,8 +47,6 @@ export async function processEpubExtraction(
       result.error = "Not an EPUB file";
       return result;
     }
-
-    emitEnrichmentStarted(bookId, { fileType: "epub" });
 
     // 2. Extract metadata
     try {
@@ -104,16 +98,6 @@ export async function processEpubExtraction(
 
     result.success = result.metadataExtracted || result.coverExtracted;
 
-    // Update book status based on extraction result (Task 4.4)
-    if (result.success) {
-      await updateBook(bookId, { status: "enriched" });
-    }
-
-    emitEnrichmentCompleted(bookId, {
-      metadataExtracted: result.metadataExtracted,
-      coverExtracted: result.coverExtracted,
-    });
-
     logger.info("EPUB extraction completed", { context, result });
 
     return result;
@@ -151,8 +135,6 @@ export async function processComicExtraction(
       result.error = "Not a CBZ/CBR file";
       return result;
     }
-
-    emitEnrichmentStarted(bookId, { fileType: book.file_type });
 
     // 2. Extract metadata from ComicInfo.xml
 
@@ -212,18 +194,8 @@ export async function processComicExtraction(
 
     result.success = result.metadataExtracted || result.coverExtracted;
 
-    // Update book status based on extraction result (Task 4.4)
-    if (result.success) {
-      await updateBook(bookId, { status: "enriched" });
-    }
-
     // AC #7: emit enrichment.progress with step "extraction-complete"
     emitEnrichmentProgress(bookId, "extraction-complete", {
-      metadataExtracted: result.metadataExtracted,
-      coverExtracted: result.coverExtracted,
-    });
-
-    emitEnrichmentCompleted(bookId, {
       metadataExtracted: result.metadataExtracted,
       coverExtracted: result.coverExtracted,
     });

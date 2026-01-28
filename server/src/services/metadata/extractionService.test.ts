@@ -12,11 +12,7 @@ import {
   extractComicMetadata,
   extractComicCover,
 } from "./extractors/comicExtractor";
-import {
-  emitEnrichmentStarted,
-  emitEnrichmentProgress,
-  emitEnrichmentCompleted,
-} from "../../websocket/event";
+import { emitEnrichmentProgress } from "../../websocket/event";
 
 // 1. On mock toutes les dépendances
 vi.mock("../library/bookService");
@@ -76,8 +72,8 @@ describe("extractionService", () => {
     expect(updateBook).toHaveBeenCalledWith(mockBookId, {
       cover_path: "covers/1.jpg",
     });
-    // Verify book status updated to "enriched" (Task 4.4)
-    expect(updateBook).toHaveBeenCalledWith(mockBookId, {
+    // Verify book status is NOT updated to "enriched" (Task 8.2)
+    expect(updateBook).not.toHaveBeenCalledWith(mockBookId, {
       status: "enriched",
     });
   });
@@ -99,18 +95,10 @@ describe("extractionService", () => {
 
     await processEpubExtraction(mockBookId);
 
-    // Vérification de la séquence d'événements (Task 5.3 — distinct types)
-    expect(emitEnrichmentStarted).toHaveBeenCalledWith(
-      mockBookId,
-      expect.any(Object),
-    );
+    // Extraction service only emits progress events (lifecycle events managed by orchestrator)
     expect(emitEnrichmentProgress).toHaveBeenCalledWith(
       mockBookId,
       "metadata-extracted",
-      expect.any(Object),
-    );
-    expect(emitEnrichmentCompleted).toHaveBeenCalledWith(
-      mockBookId,
       expect.any(Object),
     );
   });
@@ -140,14 +128,24 @@ describe("extractionService", () => {
     expect(result.metadataExtracted).toBe(false);
     expect(result.coverExtracted).toBe(true);
     expect(result.success).toBe(true);
-    // Cover update + status update to "enriched"
-    expect(updateBook).toHaveBeenCalledTimes(2);
+    // Cover update only (Task 8.2)
+    expect(updateBook).toHaveBeenCalledTimes(1);
     expect(updateBook).toHaveBeenCalledWith(mockBookId, {
       cover_path: "covers/1.jpg",
     });
-    expect(updateBook).toHaveBeenCalledWith(mockBookId, {
-      status: "enriched",
-    });
+  });
+
+  it("should handle total failure (both metadata and cover fail)", async () => {
+    vi.mocked(getBookById).mockResolvedValue(mockBook as any);
+    vi.mocked(extractEpubMetadata).mockRejectedValue(new Error("Metadata fail"));
+    vi.mocked(extractEpubCover).mockRejectedValue(new Error("Cover fail"));
+
+    const result = await processEpubExtraction(mockBookId);
+
+    expect(result.success).toBe(false);
+    expect(result.metadataExtracted).toBe(false);
+    expect(result.coverExtracted).toBe(false);
+    expect(updateBook).not.toHaveBeenCalled();
   });
 });
 
@@ -210,8 +208,8 @@ describe("comic extraction integration", () => {
       cover_path: "covers/42.jpg",
     });
 
-    // Vérifie update status enriched (Task 4.4)
-    expect(updateBook).toHaveBeenCalledWith(mockBookId, {
+    // Verify book status remains unchanged (Task 8.3)
+    expect(updateBook).not.toHaveBeenCalledWith(mockBookId, {
       status: "enriched",
     });
   });
@@ -230,10 +228,7 @@ describe("comic extraction integration", () => {
 
     await processComicExtraction(mockBookId);
 
-    expect(emitEnrichmentStarted).toHaveBeenCalledWith(mockBookId, {
-      fileType: "cbz",
-    });
-
+    // Extraction service only emits progress events (lifecycle events managed by orchestrator)
     expect(emitEnrichmentProgress).toHaveBeenCalledWith(
       mockBookId,
       "metadata-extracted",
@@ -246,11 +241,6 @@ describe("comic extraction integration", () => {
       "extraction-complete",
       expect.any(Object),
     );
-
-    expect(emitEnrichmentCompleted).toHaveBeenCalledWith(mockBookId, {
-      metadataExtracted: true,
-      coverExtracted: false,
-    });
   });
 
   // Bonus robustesse : livre absent

@@ -86,7 +86,7 @@ export function startFileWatcher(
       depth: undefined,
       followSymlinks: true,
       awaitWriteFinish: activeConfig.awaitWriteFinish,
-      usePolling: false,
+      usePolling: activeConfig.usePolling,
     });
 
     // Handle file add events with logging

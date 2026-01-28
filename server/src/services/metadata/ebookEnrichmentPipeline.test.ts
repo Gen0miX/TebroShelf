@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { runEnrichmentPipeline } from "./enrichmentPipeline";
+import { runEbookEnrichmentPipeline } from "./ebookEnrichmentPipeline";
 import * as bookService from "../library/bookService";
 import * as openLibraryClient from "./sources/openLibraryClient";
 import * as coverDownloader from "./coverDownloader";
@@ -19,7 +19,7 @@ describe("Enrichment Pipeline Integration", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Default mocks
     vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
       success: false,
@@ -54,7 +54,7 @@ describe("Enrichment Pipeline Integration", () => {
     } as any);
 
     // WHEN: On lance le pipeline
-    const result = await runEnrichmentPipeline(mockBookId);
+    const result = await runEbookEnrichmentPipeline(mockBookId);
 
     // THEN: Le pipeline est un succès
     expect(result.success).toBe(true);
@@ -88,7 +88,7 @@ describe("Enrichment Pipeline Integration", () => {
       title: "Deep Work",
     } as any);
 
-    await runEnrichmentPipeline(mockBookId);
+    await runEbookEnrichmentPipeline(mockBookId);
 
     // 1. Vérifie le démarrage du pipeline via emitEnrichmentProgress
     expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
@@ -128,7 +128,7 @@ describe("Enrichment Pipeline Integration", () => {
       "covers/123.jpg",
     );
 
-    await runEnrichmentPipeline(mockBookId);
+    await runEbookEnrichmentPipeline(mockBookId);
 
     // Vérifie que le chemin de l'image est bien passé à la mise à jour finale
     expect(bookService.updateBook).toHaveBeenCalledWith(
@@ -142,10 +142,10 @@ describe("Enrichment Pipeline Integration", () => {
   // 9.2 Test OpenLibrary fails → Google Books succeeds flow
   it("should fallback to Google Books when OpenLibrary fails", async () => {
     const mockBook = {
-        id: mockBookId,
-        content_type: "book",
-        title: "Clean Code",
-        isbn: "123"
+      id: mockBookId,
+      content_type: "book",
+      title: "Clean Code",
+      isbn: "123",
     };
     vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
 
@@ -155,53 +155,59 @@ describe("Enrichment Pipeline Integration", () => {
 
     // Succeed Google Books
     vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
-        success: true,
-        bookId: mockBookId,
-        source: "googlebooks",
-        fieldsUpdated: ["title", "author"],
-        coverUpdated: true,
-        status: "enriched",
+      success: true,
+      bookId: mockBookId,
+      source: "googlebooks",
+      fieldsUpdated: ["title", "author"],
+      coverUpdated: true,
+      status: "enriched",
     } as any);
 
-    const result = await runEnrichmentPipeline(mockBookId);
+    const result = await runEbookEnrichmentPipeline(mockBookId);
 
     expect(result.success).toBe(true);
     expect(result.source).toBe("googlebooks");
     expect(result.status).toBe("enriched");
-    expect(googleBooksEnrichment.enrichFromGoogleBooks).toHaveBeenCalledWith(mockBookId);
+    expect(googleBooksEnrichment.enrichFromGoogleBooks).toHaveBeenCalledWith(
+      mockBookId,
+    );
   });
 
   // 9.4 Test WebSocket events for full pipeline (incl. fallback)
   it("should emit events for full fallback flow", async () => {
-      const mockBook = { id: mockBookId, content_type: "book", isbn: "123" };
-      vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
+    const mockBook = { id: mockBookId, content_type: "book", isbn: "123" };
+    vi.mocked(bookService.getBookById).mockResolvedValue(mockBook as any);
 
-      // OL Fails
-      vi.mocked(openLibraryClient.searchByISBN).mockResolvedValue(null);
-      vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
+    // OL Fails
+    vi.mocked(openLibraryClient.searchByISBN).mockResolvedValue(null);
+    vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
 
-      // GB Succeeds
-      vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
-          success: true,
-          bookId: mockBookId,
-          source: "googlebooks",
-          fieldsUpdated: ["author"],
-          coverUpdated: false
-      } as any);
+    // GB Succeeds
+    vi.mocked(googleBooksEnrichment.enrichFromGoogleBooks).mockResolvedValue({
+      success: true,
+      bookId: mockBookId,
+      source: "googlebooks",
+      fieldsUpdated: ["author"],
+      coverUpdated: false,
+    } as any);
 
-      await runEnrichmentPipeline(mockBookId);
+    await runEbookEnrichmentPipeline(mockBookId);
 
-      // Verify Start
-      expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
-          mockBookId, "pipeline-started", expect.any(Object)
-      );
+    // Verify Start
+    expect(wsEvent.emitEnrichmentProgress).toHaveBeenCalledWith(
+      mockBookId,
+      "pipeline-started",
+      expect.any(Object),
+    );
 
-      // Pipeline should NOT emit "enrichment-failed" when GB succeeds.
-      expect(wsEvent.emitEnrichmentProgress).not.toHaveBeenCalledWith(
-          mockBookId, "enrichment-failed", expect.any(Object)
-      );
+    // Pipeline should NOT emit "enrichment-failed" when GB succeeds.
+    expect(wsEvent.emitEnrichmentProgress).not.toHaveBeenCalledWith(
+      mockBookId,
+      "enrichment-failed",
+      expect.any(Object),
+    );
   });
-  it("should move book to quarantine if no metadata is found", async () => {
+  it("should return failure when no metadata is found from any source", async () => {
     const mockBook = {
       id: mockBookId,
       content_type: "book",
@@ -214,16 +220,19 @@ describe("Enrichment Pipeline Integration", () => {
     vi.mocked(openLibraryClient.searchByTitle).mockResolvedValue([]);
 
     // Google Books ne trouve rien (mocké par défaut dans beforeEach)
-    
-    const result = await runEnrichmentPipeline(mockBookId);
 
-    expect(result.status).toBe("quarantine");
-    expect(bookService.updateBook).toHaveBeenCalledWith(
+    const result = await runEbookEnrichmentPipeline(mockBookId);
+
+    // Pipeline returns failure for orchestrator to handle quarantine
+    expect(result.success).toBe(false);
+    expect(result.status).toBe("pending");
+    expect(result.error).toContain("OpenLibrary");
+    expect(result.error).toContain("Google Books");
+
+    // Pipeline no longer manages quarantine (orchestrator responsibility)
+    expect(bookService.updateBook).not.toHaveBeenCalledWith(
       mockBookId,
-      expect.objectContaining({
-        status: "quarantine",
-        failure_reason: expect.stringContaining("Enrichment failed: OpenLibrary (No matching book found on OpenLibrary), Google Books (No match found)"),
-      }),
+      expect.objectContaining({ status: "quarantine" }),
     );
   });
 });
