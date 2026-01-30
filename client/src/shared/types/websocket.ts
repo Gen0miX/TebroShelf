@@ -22,8 +22,18 @@ export interface ScanCompletedPayload {
   duration: number;
 }
 
+export interface EnrichmentFailedPayload {
+  bookId: number;
+  failureReason: string;
+  contentType: string;
+  sourcesAttempted: string[];
+}
+
 // Event type discriminator for type-safe handling
-export type WebSocketEventType = "file.detected" | "scan.completed";
+export type WebSocketEventType =
+  | "file.detected"
+  | "scan.completed"
+  | "enrichment.failed";
 
 export function isFileDetectedMessage(
   message: WebSocketMessage,
@@ -35,4 +45,10 @@ export function isScanCompletedMessage(
   message: WebSocketMessage,
 ): message is WebSocketMessage<ScanCompletedPayload> {
   return message.type === "scan.completed";
+}
+
+export function isEnrichmentFailedMessage(
+  message: WebSocketMessage,
+): message is WebSocketMessage<EnrichmentFailedPayload> {
+  return message.type === "enrichment.failed";
 }

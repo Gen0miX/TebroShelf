@@ -7,8 +7,10 @@ import type {
   WebSocketMessage,
   FileDetectedPayload,
   ScanCompletedPayload,
+  EnrichmentFailedPayload,
 } from "@/shared/types/websocket";
 import {
+  isEnrichmentFailedMessage,
   isFileDetectedMessage,
   isScanCompletedMessage,
 } from "@/shared/types/websocket";
@@ -47,6 +49,16 @@ export function useWebSocketEvents() {
               description: "No new files found",
             });
           }
+        } else if (isEnrichmentFailedMessage(message)) {
+          const payload = message.payload as EnrichmentFailedPayload;
+          // Invalidate quarantine queries for real-time refresh
+          queryClient.invalidateQueries({ queryKey: ["quarantine"] });
+
+          toast({
+            variant: "destructive",
+            title: "Enrichment failed",
+            description: `${payload.contentType} moved to quarantine: ${payload.failureReason}`,
+          });
         } else {
           console.log("Unknown WebSocket event:", message.type);
         }

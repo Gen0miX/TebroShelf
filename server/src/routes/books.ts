@@ -15,7 +15,7 @@ import { logger } from "../utils/logger";
 const router = Router();
 
 // Helper function to transform book data (parse genres JSON)
-function transformBook(
+export function transformBook(
   book: any,
   includeVisibility: boolean = false,
 ): Record<string, any> {
