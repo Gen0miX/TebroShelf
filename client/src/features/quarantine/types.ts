@@ -30,3 +30,30 @@ export interface QuarantineListResponse {
 export interface QuarantineCountResponse {
   data: { count: number };
 }
+
+export interface MetadataSearchResult {
+  sourceId: number;
+  externalId: number;
+  title: string;
+  author: string | null;
+  description: string | null;
+  coverUrl: string | null;
+  genres: string | null;
+  publicationDate: string | null;
+  source: MetadataSource;
+}
+
+export type MetadataSource =
+  | "openlibrary"
+  | "googlebooks"
+  | "anilist"
+  | "myanimelist"
+  | "mangadex";
+
+export interface MetadataSearchResponse {
+  data: MetadataSearchResult[];
+}
+
+export interface MetadataSourceResponse {
+  data: MetadataSource[];
+}

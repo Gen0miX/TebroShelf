@@ -6,6 +6,7 @@ import authRouter from "./routes/auth";
 import adminRouter from "./routes/admin";
 import booksRouter from "./routes/books";
 import quarantineRouter from "./routes/quarantine";
+import metadataRouter from "./routes/metadata";
 
 const app = express();
 
@@ -26,6 +27,9 @@ app.use("/api/v1/books", booksRouter);
 
 // Quarantine routes (authentication required, visibility for admin)
 app.use("/api/v1/quarantine", quarantineRouter);
+
+// Metadata routes (authentification required, visibility for admin)
+app.use("/api/v1/metadata", metadataRouter);
 
 app.get("/api/v1/health", (req, res) => {
   res.json({

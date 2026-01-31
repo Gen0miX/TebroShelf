@@ -1,4 +1,4 @@
-import type { QuarantineListResponse } from "../types";
+import type { QuarantineListResponse } from "@/features/quarantine/index";
 
 const API_BASE = "/api/v1/quarantine";
 

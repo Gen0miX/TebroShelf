@@ -1,9 +1,26 @@
-import { FileText, BookOpen, Clock, AlertCircle } from "lucide-react";
+import {
+  FileText,
+  BookOpen,
+  Clock,
+  AlertCircle,
+  Book,
+  BookImage,
+} from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import type { QuarantineItemType } from "@/features/quarantine/index";
 import { Card } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/shared/components/ui/sheet";
+import { MetadataSearchPanel } from "./MetadataSearchPanel";
 
 interface QuarantineItemProps {
   item: QuarantineItemType;
@@ -46,20 +63,35 @@ export function QuarantineItem({ item }: QuarantineItemProps) {
 
         {/* Info Section */}
         <div className="flex flex-col flex-1 p-4 gap-3">
-          <div className="space-y-1">
-            <h3
-              className="font-semibold text-lg leading-tight line-clamp-1"
-              title={filename}
-            >
-              {filename}
-            </h3>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Clock className="h-3 w-3" />
-              <span>Ajouté le {dateAdded}</span>
+          <div className="flex justify-between items-start gap-4">
+            <div className="space-y-1">
+              <h3
+                className="font-semibold text-lg leading-tight line-clamp-1"
+                title={item.title}
+              >
+                {item.title}
+              </h3>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Book className="h-3 w-3" />
+                {filename}
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>Ajouté le {dateAdded}</span>
+              </div>
+              <Badge
+                variant={item.content_type === "manga" ? "accent" : "default"}
+                className="capitalize text-[10px] px-1.5 py-0 h-5"
+              >
+                {item.content_type}
+              </Badge>
+            </div>
+
             <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
               <div className="flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
@@ -75,25 +107,50 @@ export function QuarantineItem({ item }: QuarantineItemProps) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t text-xs">
+          <div className="flex items-center justify-between pt-2 border-t text-xs mt-auto">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <FileText className="h-3.5 w-3.5" />
-              <span className="uppercase font-medium tracking-tight" data-testid="file-type">
+              <span
+                className="uppercase font-medium tracking-tight"
+                data-testid="file-type"
+              >
                 {item.file_type}
               </span>
             </div>
 
-            {item.language && (
-              <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-                {item.language.toUpperCase()}
-              </Badge>
-            )}
-            <Badge
-              variant={item.content_type === "manga" ? "accent" : "default"}
-              className="capitalize text-[10px] px-1.5 py-0 h-5"
-            >
-              {item.content_type}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {item.language && (
+                <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                  {item.language.toUpperCase()}
+                </Badge>
+              )}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="default"
+                    size="icon"
+                    className="shrink-0 border border-accent/40"
+                  >
+                    <BookImage className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-full sm:max-w-xl">
+                  <SheetHeader className="mb-6">
+                    <SheetTitle>Recherche de métadonnées</SheetTitle>
+                    <SheetDescription>
+                      Recherchez des métadonnées pour enrichir "
+                      <strong>{item.title}</strong>". Sélectionnez un résultat
+                      pour l'appliquer.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <MetadataSearchPanel
+                    bookId={item.id}
+                    initialQuery={item.title}
+                    contentType={item.content_type}
+                  />
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </div>
