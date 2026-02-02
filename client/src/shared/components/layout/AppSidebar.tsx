@@ -80,10 +80,10 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border/50">
-      <SidebarHeader className="h-16 flex items-center px-6 pt-5">
+      <SidebarHeader className="h-16 flex items-center px-6 pt-3">
         <div className="flex items-center gap-2 font-bold text-xl tracking-tight">
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground">
-            TS
+          <div className="size-10 flex items-center justify-center">
+            <img src="/favicon.svg" alt="TebroShelf Logo" />
           </div>
           <span className="group-data-[collapsible=icon]:hidden">
             TebroShelf

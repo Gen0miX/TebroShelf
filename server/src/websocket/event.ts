@@ -19,6 +19,11 @@ export interface ScanCompletedPayload {
   duration: number;
 }
 
+export interface BookUpdatedPayload {
+  bookId: number;
+  details?: Record<string, unknown>;
+}
+
 export interface EnrichmentProgressPayload {
   bookId: number;
   step: string;
@@ -71,6 +76,25 @@ export function emitScanCompleted(payload: ScanCompletedPayload): void {
     payload: message.payload,
   });
 
+  broadcast(message);
+}
+
+/**
+ * Emit book.updated event to all connected clients.
+ */
+export function emitBookUpdated(
+  bookId: number,
+  details?: Record<string, unknown>,
+): void {
+  const message: WebSocketMessage<BookUpdatedPayload> = {
+    type: "book.updated",
+    payload: { bookId, ...details },
+    timestamp: new Date().toISOString(),
+  };
+  logger.info("Emitting book.updated event", {
+    context,
+    payload: message.payload,
+  });
   broadcast(message);
 }
 

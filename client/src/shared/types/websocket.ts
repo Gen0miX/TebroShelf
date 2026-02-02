@@ -29,11 +29,17 @@ export interface EnrichmentFailedPayload {
   sourcesAttempted: string[];
 }
 
+export interface BookUpdatedPayload {
+  bookId: number;
+  details?: Record<string, unknown>;
+}
+
 // Event type discriminator for type-safe handling
 export type WebSocketEventType =
   | "file.detected"
   | "scan.completed"
-  | "enrichment.failed";
+  | "enrichment.failed"
+  | "book.updated";
 
 export function isFileDetectedMessage(
   message: WebSocketMessage,
@@ -51,4 +57,10 @@ export function isEnrichmentFailedMessage(
   message: WebSocketMessage,
 ): message is WebSocketMessage<EnrichmentFailedPayload> {
   return message.type === "enrichment.failed";
+}
+
+export function isBookUpdatedMessage(
+  message: WebSocketMessage,
+): message is WebSocketMessage<BookUpdatedPayload> {
+  return message.type === "book.updated";
 }

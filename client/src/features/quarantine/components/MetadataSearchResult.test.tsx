@@ -5,13 +5,13 @@ import type { MetadataSearchResult as MetadataSearchResultType } from "../types"
 
 describe("MetadataSearchResult", () => {
   const mockResult: MetadataSearchResultType = {
-    sourceId: 1,
-    externalId: 123,
+    sourceId: "OL123",
+    externalId: "OL123",
     title: "Test Book Title",
     author: "Test Author",
     description: "Test Description",
     coverUrl: "http://example.com/cover.jpg",
-    genres: "Fiction, Fantasy",
+    genres: ["Fiction", "Fantasy"],
     publicationDate: "2023",
     source: "openlibrary",
   };

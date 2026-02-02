@@ -2,8 +2,14 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { User, KeySquare } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
+import { Field, FieldLabel } from "@/shared/components/ui/field";
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+} from "@/shared/components/ui/input-group";
 import {
   Card,
   CardHeader,
@@ -56,32 +62,64 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl text-center">TebroShelf</CardTitle>
+    <div className="flex place-items-start justify-center min-h-screen">
+      <Card className="w-full max-w-sm overflow-hidden mt-14 shadow-xl border-none">
+        <CardHeader className="p-0 mb-10">
+          <div className="flex flex-col items-center justify-center py-2 mb-10 bg-muted border-b">
+            <img
+              src="/favicon.svg"
+              alt="TebroShelf Logo"
+              className="w-14 h-14"
+            />
+          </div>
+          <h1 className="flex justify-center items-center font-sans font-thin text-4xl tracking-widest uppercase">
+            TebroShelf
+          </h1>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <Input
-                type="text"
-                placeholder="Nom d'utilisateur"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                autoFocus
-              />
-            </div>
-            <div>
-              <Input
-                type="password"
-                placeholder="Mot de passe"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <Field>
+              <FieldLabel
+                htmlFor="username"
+                className="font-[200] tracking-wider"
+              >
+                Nom d'utilisateur
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="username"
+                  type="text"
+                  placeholder="Nom d'utilisateur"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoFocus
+                />
+                <InputGroupAddon>
+                  <User />
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
+            <Field>
+              <FieldLabel
+                htmlFor="password"
+                className="font-[200] tracking-wider"
+              >
+                Mot de passe
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  type="password"
+                  placeholder="Mot de passe"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <InputGroupAddon>
+                  <KeySquare />
+                </InputGroupAddon>
+              </InputGroup>
+            </Field>
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Connexion..." : "Se connecter"}
             </Button>

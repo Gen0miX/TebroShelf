@@ -32,15 +32,20 @@ export interface QuarantineCountResponse {
 }
 
 export interface MetadataSearchResult {
-  sourceId: number;
-  externalId: number;
+  sourceId: string;
+  externalId: string;
   title: string;
   author: string | null;
   description: string | null;
   coverUrl: string | null;
-  genres: string | null;
+  genres: string[];
   publicationDate: string | null;
   source: MetadataSource;
+  publisher?: string | null;
+  isbn?: string | null;
+  language?: string | null;
+  series?: string | null;
+  volume?: number | null;
 }
 
 export type MetadataSource =
@@ -56,4 +61,26 @@ export interface MetadataSearchResponse {
 
 export interface MetadataSourceResponse {
   data: MetadataSource[];
+}
+
+export interface ApplyMetadataRequest {
+  title: string;
+  author?: string;
+  description?: string;
+  genres?: string[];
+  publicationDate?: string;
+  publisher?: string;
+  isbn?: string;
+  language?: string;
+  series?: string;
+  volume?: number;
+  coverUrl?: string;
+  source: MetadataSource;
+  externalId: string;
+}
+
+export interface ApplyMetadataResponse {
+  bookId: number;
+  fieldsUpdated: string[];
+  coverDownloaded: boolean;
 }

@@ -8,11 +8,13 @@ import type {
   FileDetectedPayload,
   ScanCompletedPayload,
   EnrichmentFailedPayload,
+  BookUpdatedPayload,
 } from "@/shared/types/websocket";
 import {
   isEnrichmentFailedMessage,
   isFileDetectedMessage,
   isScanCompletedMessage,
+  isBookUpdatedMessage,
 } from "@/shared/types/websocket";
 
 export function useWebSocketEvents() {
@@ -51,14 +53,21 @@ export function useWebSocketEvents() {
           }
         } else if (isEnrichmentFailedMessage(message)) {
           const payload = message.payload as EnrichmentFailedPayload;
-          // Invalidate quarantine queries for real-time refresh
+          // Invalidate quarantine queries for real-time refresh (list and count)
           queryClient.invalidateQueries({ queryKey: ["quarantine"] });
+          queryClient.invalidateQueries({ queryKey: ["quarantine", "count"] });
 
           toast({
             variant: "destructive",
             title: "Enrichment failed",
             description: `${payload.contentType} moved to quarantine: ${payload.failureReason}`,
           });
+        } else if (isBookUpdatedMessage(message)) {
+          // Invalidate quarantine queries when books are updated (e.g., moved out of quarantine)
+          queryClient.invalidateQueries({ queryKey: ["quarantine"] });
+          queryClient.invalidateQueries({ queryKey: ["quarantine", "count"] });
+          // Also invalidate books query for library refresh
+          queryClient.invalidateQueries({ queryKey: ["books"] });
         } else {
           console.log("Unknown WebSocket event:", message.type);
         }

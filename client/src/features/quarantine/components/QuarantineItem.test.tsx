@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, type ReactNode } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { QuarantineItem } from "./QuarantineItem";
 import type { QuarantineItemType } from "../types";
 
@@ -7,6 +8,18 @@ import type { QuarantineItemType } from "../types";
 vi.stubGlobal('import.meta.env', {
   VITE_API_URL: 'http://localhost:3000'
 });
+
+const createWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+};
 
 describe("QuarantineItem", () => {
   const mockItem: QuarantineItemType = {
@@ -34,30 +47,30 @@ describe("QuarantineItem", () => {
   };
 
   it("should render item filename correctly", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     expect(screen.getByText("test-book.epub")).toBeInTheDocument();
   });
 
   it("should display the correct date added", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     // format(new Date("2024-01-30T10:00:00Z"), "PPP", { locale: fr }) -> "30 janvier 2024"
     // Use a flexible regex to avoid encoding issues with 'é'
     expect(screen.getByText(/Ajout.* 30 janvier 2024/i)).toBeInTheDocument();
   });
 
   it("should display the failure reason", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     expect(screen.getByText("Missing metadata")).toBeInTheDocument();
   });
 
   it("should display a fallback message when failure reason is null", () => {
     const itemWithoutReason = { ...mockItem, failure_reason: null };
-    render(<QuarantineItem item={itemWithoutReason} />);
+    render(<QuarantineItem item={itemWithoutReason} />, { wrapper: createWrapper() });
     expect(screen.getByText("Erreur de traitement inconnue")).toBeInTheDocument();
   });
 
   it("should render content_type badge correctly for book", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     const badge = screen.getByText("book");
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass("bg-primary"); // default variant
@@ -65,30 +78,30 @@ describe("QuarantineItem", () => {
 
   it("should render content_type badge correctly for manga", () => {
     const mangaItem = { ...mockItem, content_type: "manga" as const };
-    render(<QuarantineItem item={mangaItem} />);
+    render(<QuarantineItem item={mangaItem} />, { wrapper: createWrapper() });
     const badge = screen.getByText("manga");
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveClass("bg-accent"); // accent variant
   });
 
   it("should render file type badge", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     expect(screen.getByTestId("file-type")).toHaveTextContent(/epub/i);
   });
 
   it("should render language badge when language is present", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     expect(screen.getByText("FR")).toBeInTheDocument();
   });
 
   it("should not render language badge when language is null", () => {
     const itemWithoutLang = { ...mockItem, language: null };
-    render(<QuarantineItem item={itemWithoutLang} />);
+    render(<QuarantineItem item={itemWithoutLang} />, { wrapper: createWrapper() });
     expect(screen.queryByText("FR")).not.toBeInTheDocument();
   });
 
   it("should render cover image when cover_path is provided", () => {
-    render(<QuarantineItem item={mockItem} />);
+    render(<QuarantineItem item={mockItem} />, { wrapper: createWrapper() });
     const img = screen.getByAltText("test-book.epub") as HTMLImageElement;
     expect(img).toBeInTheDocument();
     expect(img.src).toContain("covers/test-book.jpg");
@@ -96,7 +109,7 @@ describe("QuarantineItem", () => {
 
   it("should render fallback icon when cover_path is null", () => {
     const itemWithoutCover = { ...mockItem, cover_path: null };
-    render(<QuarantineItem item={itemWithoutCover} />);
+    render(<QuarantineItem item={itemWithoutCover} />, { wrapper: createWrapper() });
     expect(screen.getByText("Pas de couverture")).toBeInTheDocument();
   });
 });

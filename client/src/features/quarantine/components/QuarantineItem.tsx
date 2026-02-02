@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   FileText,
   BookOpen,
@@ -8,7 +9,11 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import type { QuarantineItemType } from "@/features/quarantine/index";
+import type {
+  MetadataSearchResult,
+  QuarantineItemType,
+  ApplyMetadataRequest,
+} from "@/features/quarantine/index";
 import { Card } from "@/shared/components/ui/card";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -21,12 +26,44 @@ import {
   SheetTrigger,
 } from "@/shared/components/ui/sheet";
 import { MetadataSearchPanel } from "./MetadataSearchPanel";
+import { MetadataPreviewPanel } from "./MetadataPreviewPanel";
+import { useApplyMetadata } from "../hooks/useApplyMetadata";
+import { useToast } from "@/shared/hooks/use-toast";
+import { ToastAction } from "@/shared/components/ui/toast";
 
 interface QuarantineItemProps {
   item: QuarantineItemType;
 }
 
+type MetadataPanelState =
+  | { type: "search" }
+  | { type: "preview"; result: MetadataSearchResult };
+
+// Map MetadataSearchResult to ApplyMetadataRequest
+function mapResultToApplyRequest(
+  result: MetadataSearchResult,
+): ApplyMetadataRequest {
+  return {
+    title: result.title,
+    author: result.author ?? undefined,
+    description: result.description ?? undefined,
+    genres: result.genres.length > 0 ? result.genres : undefined,
+    publicationDate: result.publicationDate ?? undefined,
+    publisher: result.publisher ?? undefined,
+    isbn: result.isbn ?? undefined,
+    language: result.language ?? undefined,
+    series: result.series ?? undefined,
+    volume: result.volume ?? undefined,
+    coverUrl: result.coverUrl ?? undefined,
+    source: result.source,
+    externalId: result.externalId,
+  };
+}
+
 export function QuarantineItem({ item }: QuarantineItemProps) {
+  const { toast } = useToast();
+  const { mutate: applyMetadata, isPending: isApplying } = useApplyMetadata();
+
   // Extract filename from file_path
   const filename = item.file_path.split(/[\\/]/).pop() || item.file_path;
 
@@ -37,6 +74,105 @@ export function QuarantineItem({ item }: QuarantineItemProps) {
   const coverUrl = item.cover_path
     ? `${import.meta.env.VITE_API_URL}/static/${item.cover_path}`
     : null;
+
+  const [panelState, setPanelState] = useState<MetadataPanelState>({
+    type: "search",
+  });
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const handleApplyMetadata = (result: MetadataSearchResult) => {
+    const metadata = mapResultToApplyRequest(result);
+    applyMetadata(
+      { bookId: item.id, metadata },
+      {
+        onSuccess: () => {
+          toast({
+            title: "Métadonnées appliquées",
+            description: `Les métadonnées ont été appliquées à "${item.title}".`,
+          });
+          setSheetOpen(false);
+          setPanelState({ type: "search" });
+        },
+        onError: (error) => {
+          toast({
+            title: "Erreur",
+            description:
+              error instanceof Error
+                ? error.message
+                : "Impossible d'appliquer les métadonnées.",
+            variant: "destructive",
+            action: (
+              <ToastAction
+                altText="Réessayer"
+                onClick={() => handleApplyMetadata(result)}
+              >
+                Réessayer
+              </ToastAction>
+            ),
+          });
+        },
+      },
+    );
+  };
+
+  const sheetConfig = (() => {
+    switch (panelState.type) {
+      case "search":
+        return {
+          title: "Recherche de métadonnées",
+          description: (
+            <>
+              Recherchez des métadonnées pour enrichir{" "}
+              <strong>{item.title}</strong>. Sélectionnez un résultat pour
+              l’aperçu.
+            </>
+          ),
+          content: (
+            <MetadataSearchPanel
+              bookId={item.id}
+              initialQuery={item.title}
+              contentType={item.content_type}
+              onResultSelect={(result) =>
+                setPanelState({ type: "preview", result })
+              }
+            />
+          ),
+        };
+
+      case "preview":
+        return {
+          title: "Aperçu des métadonnées",
+          description: (
+            <>
+              Vérifiez les informations avant de les appliquer à{" "}
+              <strong>{item.title}</strong>.
+            </>
+          ),
+          content: (
+            <MetadataPreviewPanel
+              result={panelState.result}
+              currentBook={{
+                title: item.title,
+                author: item.author,
+                description: item.description,
+                genres: item.genres,
+                coverPath: item.cover_path,
+                contentType: item.content_type,
+                publisher: item.publisher,
+                publicationDate: item.publication_date,
+                isbn: item.isbn,
+                language: item.language,
+                series: item.series,
+                volume: item.volume,
+              }}
+              onBack={() => setPanelState({ type: "search" })}
+              onApply={handleApplyMetadata}
+              isApplying={isApplying}
+            />
+          ),
+        };
+    }
+  })();
 
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
@@ -124,7 +260,7 @@ export function QuarantineItem({ item }: QuarantineItemProps) {
                   {item.language.toUpperCase()}
                 </Badge>
               )}
-              <Sheet>
+              <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetTrigger asChild>
                   <Button
                     variant="default"
@@ -134,20 +270,16 @@ export function QuarantineItem({ item }: QuarantineItemProps) {
                     <BookImage className="h-4 w-4" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent className="w-full sm:max-w-xl">
+
+                <SheetContent className="w-full sm:max-w-xl flex flex-col">
                   <SheetHeader className="mb-6">
-                    <SheetTitle>Recherche de métadonnées</SheetTitle>
+                    <SheetTitle>{sheetConfig.title}</SheetTitle>
                     <SheetDescription>
-                      Recherchez des métadonnées pour enrichir "
-                      <strong>{item.title}</strong>". Sélectionnez un résultat
-                      pour l'appliquer.
+                      {sheetConfig.description}
                     </SheetDescription>
                   </SheetHeader>
-                  <MetadataSearchPanel
-                    bookId={item.id}
-                    initialQuery={item.title}
-                    contentType={item.content_type}
-                  />
+
+                  <div className="flex-1 min-h-0">{sheetConfig.content}</div>
                 </SheetContent>
               </Sheet>
             </div>

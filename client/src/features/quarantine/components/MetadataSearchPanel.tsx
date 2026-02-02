@@ -13,7 +13,10 @@ import { Search, AlertCircle, Inbox } from "lucide-react";
 import { useAvailableSources } from "../hooks/useAvailableSources";
 import { useMetadataSearch } from "../hooks/useMetadataSearch";
 import { MetadataSearchResult } from "./MetadataSearchResult";
-import type { MetadataSearchResult as MetadataSearchResultType, MetadataSource } from "../types";
+import type {
+  MetadataSearchResult as MetadataSearchResultType,
+  MetadataSource,
+} from "../types";
 
 interface MetadataSearchPanelProps {
   bookId: number;
@@ -41,7 +44,7 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [source, setSource] = useState<MetadataSource>(
-    contentType === "manga" ? "anilist" : "openlibrary"
+    contentType === "manga" ? "anilist" : "openlibrary",
   );
 
   const { data: availableSources, isLoading: isLoadingSources } =
@@ -104,9 +107,9 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
             className="w-full"
           />
         </div>
-        
-        <Select 
-          value={source} 
+
+        <Select
+          value={source}
           onValueChange={(value) => setSource(value as MetadataSource)}
           disabled={isLoadingSources}
         >
@@ -133,7 +136,10 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
         {isSearching ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex p-3 gap-4 border rounded-xl overflow-hidden">
+              <div
+                key={i}
+                className="flex p-3 gap-4 border rounded-xl overflow-hidden"
+              >
                 <Skeleton className="w-16 h-24 flex-shrink-0" />
                 <div className="flex flex-col flex-1 justify-between py-1">
                   <div className="space-y-2">
@@ -148,7 +154,9 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
         ) : isError ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <AlertCircle className="w-12 h-12 text-destructive/50 mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">Search failed</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              Search failed
+            </h3>
             <p className="text-sm text-muted-foreground mb-6 max-w-xs">
               Something went wrong while fetching metadata. Please try again.
             </p>
@@ -159,13 +167,16 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
         ) : isFetched && (!results || results.length === 0) ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Inbox className="w-12 h-12 text-muted-foreground/30 mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No results found</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">
+              No results found
+            </h3>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Try different search terms or select another source to find your book.
+              Try different search terms or select another source to find your
+              book.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 no-scrollbar overflow-y-auto">
             {results?.map((result) => (
               <MetadataSearchResult
                 key={`${result.source}-${result.externalId}`}
@@ -173,7 +184,7 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
                 onSelect={onResultSelect}
               />
             ))}
-            
+
             {!isFetched && !initialQuery && (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground/60">
                 <Search className="w-12 h-12 mb-4 opacity-20" />
