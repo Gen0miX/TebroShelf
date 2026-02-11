@@ -1,4 +1,7 @@
-import type { QuarantineListResponse } from "@/features/quarantine/index";
+import type {
+  QuarantineListResponse,
+  ApproveQuarantineResponse,
+} from "@/features/quarantine/index";
 
 const API_BASE = "/api/v1/quarantine";
 
@@ -27,4 +30,24 @@ export async function fetchQuarantineCount(): Promise<{ count: number }> {
 
   const result = await response.json();
   return result.data;
+}
+
+/**
+ * Approve a quarantined item and move it to the main library.
+ * Changes status from 'quarantine' to 'enriched' and clears failure_reason.
+ */
+export async function approveQuarantineItem(
+  bookId: number
+): Promise<ApproveQuarantineResponse> {
+  const response = await fetch(`${API_BASE}/${bookId}/approve`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error?.message || "Failed to approve item");
+  }
+
+  return response.json();
 }

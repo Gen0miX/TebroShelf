@@ -6,6 +6,7 @@ export { MetadataPreviewPanel } from "./components/MetadataPreviewPanel";
 export type { CurrentBookData } from "./components/MetadataPreviewPanel";
 export { MetadataEditForm } from "./components/MetadataEditForm";
 export { MetadataEditDialog } from "./components/MetadataEditDialog";
+export { ApproveButton } from "./components/ApproveButton";
 export { useQuarantine } from "./hooks/useQuarantine";
 export { useQuarantineCount } from "./hooks/useQuarantineCount";
 export { useMetadataSearch } from "./hooks/useMetadataSearch";
@@ -13,6 +14,8 @@ export { useAvailableSources } from "./hooks/useAvailableSources";
 export { useApplyMetadata } from "./hooks/useApplyMetadata";
 export { useEditMetadata } from "./hooks/useEditMetadata";
 export { useUploadCover } from "./hooks/useUploadCover";
+export { useApproveQuarantine } from "./hooks/useApproveQuarantine";
+export { approveQuarantineItem } from "./services/quarantineApi";
 export type {
   QuarantineItemType,
   QuarantineListResponse,
@@ -27,4 +30,5 @@ export type {
   EditMetadataResponse,
   CoverUploadResponse,
   BookForEdit,
+  ApproveQuarantineResponse,
 } from "./types";

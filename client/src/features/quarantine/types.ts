@@ -129,3 +129,27 @@ export interface BookForEdit {
   content_type: "book" | "manga";
   status: "pending" | "enriched" | "quarantine";
 }
+
+// Story 3.13: Quarantine Approval types
+export interface ApproveQuarantineResponse {
+  data: {
+    id: number;
+    title: string;
+    author: string | null;
+    description: string | null;
+    genres: string[] | null;
+    series: string | null;
+    volume: number | null;
+    isbn: string | null;
+    publication_date: string | null;
+    file_path: string;
+    file_type: "epub" | "cbz" | "cbr";
+    content_type: "book" | "manga";
+    cover_path: string | null;
+    status: "enriched";
+    failure_reason: null;
+    visibility: "public" | "private";
+    created_at: string;
+    updated_at: string;
+  };
+}
