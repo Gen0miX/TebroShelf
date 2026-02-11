@@ -85,7 +85,7 @@ export function AppSidebar() {
           <div className="size-10 flex items-center justify-center">
             <img src="/favicon.svg" alt="TebroShelf Logo" />
           </div>
-          <span className="group-data-[collapsible=icon]:hidden">
+          <span className="group-data-[collapsible=icon]:hidden uppercase font-thin tracking-widest">
             TebroShelf
           </span>
         </div>

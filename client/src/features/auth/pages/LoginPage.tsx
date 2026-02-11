@@ -4,7 +4,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { User, KeySquare } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Field, FieldLabel } from "@/shared/components/ui/field";
+import { Field } from "@/shared/components/ui/field";
 import {
   InputGroup,
   InputGroupInput,
@@ -16,6 +16,7 @@ import {
   CardTitle,
   CardContent,
 } from "@/shared/components/ui/card";
+import { Spinner } from "@/shared/components/ui/spinner";
 import { toast } from "@/shared/hooks/use-toast";
 
 export function LoginPage() {
@@ -65,26 +66,20 @@ export function LoginPage() {
     <div className="flex place-items-start justify-center min-h-screen">
       <Card className="w-full max-w-sm overflow-hidden mt-14 shadow-xl border-none">
         <CardHeader className="p-0 mb-10">
-          <div className="flex flex-col items-center justify-center py-2 mb-10 bg-muted border-b">
+          <div className="flex flex-col items-center justify-center py-2 mb-10 bg-muted/40 border-b">
             <img
               src="/favicon.svg"
               alt="TebroShelf Logo"
               className="w-14 h-14"
             />
           </div>
-          <h1 className="flex justify-center items-center font-sans font-thin text-4xl tracking-widest uppercase">
+          <CardTitle className="flex justify-center items-center font-sans font-thin text-4xl tracking-widest uppercase">
             TebroShelf
-          </h1>
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="mx-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field>
-              <FieldLabel
-                htmlFor="username"
-                className="font-[200] tracking-wider"
-              >
-                Nom d'utilisateur
-              </FieldLabel>
               <InputGroup>
                 <InputGroupInput
                   id="username"
@@ -94,6 +89,7 @@ export function LoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                   autoFocus
+                  disabled={isSubmitting}
                 />
                 <InputGroupAddon>
                   <User />
@@ -101,12 +97,6 @@ export function LoginPage() {
               </InputGroup>
             </Field>
             <Field>
-              <FieldLabel
-                htmlFor="password"
-                className="font-[200] tracking-wider"
-              >
-                Mot de passe
-              </FieldLabel>
               <InputGroup>
                 <InputGroupInput
                   type="password"
@@ -114,15 +104,25 @@ export function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isSubmitting}
                 />
                 <InputGroupAddon>
                   <KeySquare />
                 </InputGroupAddon>
               </InputGroup>
             </Field>
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Connexion..." : "Se connecter"}
-            </Button>
+            <div className="pt-6">
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Spinner />
+                    Connexion...
+                  </>
+                ) : (
+                  "Se connecter"
+                )}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>

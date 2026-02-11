@@ -26,7 +26,9 @@ export function MainLayout({ children }: MainLayoutProps) {
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
               {/* Breadcrumb or Page Title can go here */}
-              <h1 className="font-semibold text-lg tracking-tight">{title}</h1>
+              <h1 className="uppercase font-thin text-lg tracking-widest">
+                {title}
+              </h1>
             </div>
           </header>
           <main className="flex flex-1 flex-col gap-4 p-6 overflow-auto">

@@ -84,3 +84,48 @@ export interface ApplyMetadataResponse {
   fieldsUpdated: string[];
   coverDownloaded: boolean;
 }
+
+// Story 3.12: Manual Metadata Edit types
+export interface EditMetadataRequest {
+  title?: string;
+  author?: string | null;
+  description?: string | null;
+  genres?: string[] | null;
+  series?: string | null;
+  volume?: number | null;
+  isbn?: string | null;
+  publication_date?: string | null;
+  publisher?: string | null;
+  language?: string | null;
+}
+
+export interface EditMetadataResponse {
+  data: {
+    bookId: number;
+    fieldsUpdated: string[];
+  };
+}
+
+export interface CoverUploadResponse {
+  data: {
+    bookId: number;
+    coverPath: string;
+  };
+}
+
+export interface BookForEdit {
+  id: number;
+  title: string;
+  author: string | null;
+  description: string | null;
+  genres: string | null; // JSON string from DB
+  series: string | null;
+  volume: number | null;
+  isbn: string | null;
+  publication_date: string | null;
+  publisher: string | null;
+  language: string | null;
+  cover_path: string | null;
+  content_type: "book" | "manga";
+  status: "pending" | "enriched" | "quarantine";
+}
