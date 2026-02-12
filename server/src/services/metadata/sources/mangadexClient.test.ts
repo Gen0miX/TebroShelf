@@ -725,4 +725,149 @@ describe("MangaDexClient", () => {
     expect(metadata.publication_date).toBe("1997");
     expect(metadata.publication_status).toBe("ongoing");
   });
+
+  // Story 3.15 — Volume-specific cover tests
+  describe("Volume cover (Story 3.15)", () => {
+    it("should fetch and filter volume-specific cover when available", async () => {
+      // API returns multiple covers, we filter client-side
+      const mockCoverResponse = {
+        result: "ok",
+        response: "collection",
+        data: [
+          {
+            id: "cover-id-vol1",
+            type: "cover_art",
+            attributes: {
+              volume: "1",
+              fileName: "volume-1-cover.jpg",
+              description: null,
+              locale: null,
+              createdAt: "2021-01-01T00:00:00Z",
+              updatedAt: "2021-01-01T00:00:00Z",
+            },
+            relationships: [],
+          },
+          {
+            id: "cover-id-vol2",
+            type: "cover_art",
+            attributes: {
+              volume: "2",
+              fileName: "volume-2-cover.jpg",
+              description: null,
+              locale: null,
+              createdAt: "2021-01-01T00:00:00Z",
+              updatedAt: "2021-01-01T00:00:00Z",
+            },
+            relationships: [],
+          },
+          {
+            id: "cover-id-vol3",
+            type: "cover_art",
+            attributes: {
+              volume: "3",
+              fileName: "volume-3-cover.jpg",
+              description: null,
+              locale: null,
+              createdAt: "2021-01-01T00:00:00Z",
+              updatedAt: "2021-01-01T00:00:00Z",
+            },
+            relationships: [],
+          },
+        ],
+        limit: 100,
+        offset: 0,
+        total: 3,
+      };
+
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockCoverResponse,
+      });
+
+      // Should find and return volume 2 cover
+      const coverUrl = await mangadexClient.getVolumeCover(
+        "manga-id-123",
+        2,
+      );
+
+      // Should NOT use volume[] parameter (API doesn't support it)
+      expect(fetch).toHaveBeenCalledWith(
+        expect.not.stringContaining("volume%5B%5D"),
+        expect.any(Object),
+      );
+      expect(coverUrl).toBe(
+        "https://uploads.mangadex.org/covers/manga-id-123/volume-2-cover.jpg",
+      );
+    });
+
+    it("should return null when no volume-specific cover exists", async () => {
+      const mockCoverResponse = {
+        result: "ok",
+        response: "collection",
+        data: [],
+        limit: 1,
+        offset: 0,
+        total: 0,
+      };
+
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => mockCoverResponse,
+      });
+
+      const coverUrl = await mangadexClient.getVolumeCover(
+        "manga-id-123",
+        99,
+      );
+
+      expect(coverUrl).toBeNull();
+    });
+
+    it("should return null on fetch error", async () => {
+      (fetch as any).mockRejectedValue(new Error("Network error"));
+
+      const coverUrl = await mangadexClient.getVolumeCover(
+        "manga-id-123",
+        1,
+      );
+
+      expect(coverUrl).toBeNull();
+    });
+
+    it("should return null on non-200 response", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: "Internal Server Error",
+      });
+
+      const coverUrl = await mangadexClient.getVolumeCover(
+        "manga-id-123",
+        1,
+      );
+
+      expect(coverUrl).toBeNull();
+    });
+
+    it("should include manga ID in cover request", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: "ok",
+          response: "collection",
+          data: [],
+          limit: 1,
+          offset: 0,
+          total: 0,
+        }),
+      });
+
+      await mangadexClient.getVolumeCover("specific-manga-id", 5);
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("manga%5B%5D=specific-manga-id"),
+        expect.any(Object),
+      );
+    });
+  });
 });

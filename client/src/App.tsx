@@ -5,6 +5,8 @@ import { AuthProvider, ProtectedRoute, LoginPage } from "@/features/auth";
 import { AdminRoute } from "@/features/auth/components/AdminRoute";
 import { ScanButton } from "@/features/admin/components/ScanButton";
 import { WebSocketProvider } from "@/shared/providers/WebSocketProvider";
+import { EnrichmentProgressProvider } from "@/shared/providers/EnrichmentProgressContext";
+import { EnrichmentProgressTracker } from "@/shared/components/EnrichmentProgressTracker";
 import { Toaster } from "@/shared/components/ui/toaster";
 import QuarantinePage from "@/shared/pages/QuarantinePage";
 // import { LibraryPage } from '@/features/library/pages/LibraryPage';
@@ -17,7 +19,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <WebSocketProvider>
+        <EnrichmentProgressProvider>
+          <WebSocketProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
@@ -25,6 +28,7 @@ function App() {
                 path="/*"
                 element={
                   <ProtectedRoute>
+                    <EnrichmentProgressTracker />
                     <MainLayout>
                       <Routes>
                         {/* Library Routes */}
@@ -77,7 +81,8 @@ function App() {
             </Routes>
           </BrowserRouter>
           <Toaster />
-        </WebSocketProvider>
+          </WebSocketProvider>
+        </EnrichmentProgressProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

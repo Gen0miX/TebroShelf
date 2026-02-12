@@ -72,8 +72,28 @@ describe("MetadataSearchResult", () => {
   it("should call onSelect when clicked", () => {
     const onSelect = vi.fn();
     render(<MetadataSearchResult result={mockResult} onSelect={onSelect} />);
-    
+
     fireEvent.click(screen.getByText("Test Book Title").closest(".rounded-xl")!);
     expect(onSelect).toHaveBeenCalledWith(mockResult);
+  });
+
+  it("should display volume badge when volume is present", () => {
+    const resultWithVolume = { ...mockResult, volume: 5 };
+    render(<MetadataSearchResult result={resultWithVolume} />);
+
+    expect(screen.getByText("Vol. 5")).toBeInTheDocument();
+  });
+
+  it("should not display volume badge when volume is null", () => {
+    const resultWithoutVolume = { ...mockResult, volume: null };
+    render(<MetadataSearchResult result={resultWithoutVolume} />);
+
+    expect(screen.queryByText(/Vol\./)).not.toBeInTheDocument();
+  });
+
+  it("should not display volume badge when volume is undefined", () => {
+    render(<MetadataSearchResult result={mockResult} />);
+
+    expect(screen.queryByText(/Vol\./)).not.toBeInTheDocument();
   });
 });

@@ -65,10 +65,26 @@ describe("MetadataSearchPanel", () => {
         contentType="book"
       />
     );
-    
-    // Open select (SelectTrigger)
-    const trigger = screen.getByRole("combobox");
-    expect(trigger).toHaveTextContent("OpenLibrary");
+
+    // Book content type has two comboboxes: source and language
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes).toHaveLength(2);
+    // First combobox is source selector
+    expect(comboboxes[0]).toHaveTextContent("OpenLibrary");
+  });
+
+  it("should show language dropdown for book content type", () => {
+    render(
+      <MetadataSearchPanel
+        bookId={1}
+        initialQuery="The Hobbit"
+        contentType="book"
+      />
+    );
+
+    const comboboxes = screen.getAllByRole("combobox");
+    // Second combobox is language selector, default is "All languages"
+    expect(comboboxes[1]).toHaveTextContent("All languages");
   });
 
   it("should filter sources based on contentType (manga) and set default source", () => {
@@ -79,9 +95,11 @@ describe("MetadataSearchPanel", () => {
         contentType="manga"
       />
     );
-    
-    const trigger = screen.getByRole("combobox");
-    expect(trigger).toHaveTextContent("AniList");
+
+    // Manga content type has only one combobox (no language dropdown)
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes).toHaveLength(1);
+    expect(comboboxes[0]).toHaveTextContent("AniList");
   });
 
   it("should trigger search when button is clicked", () => {
@@ -196,10 +214,45 @@ describe("MetadataSearchPanel", () => {
         contentType="book"
       />
     );
-    
+
     expect(screen.getByText(/search failed/i)).toBeInTheDocument();
     const retryButton = screen.getByRole("button", { name: /retry/i });
     fireEvent.click(retryButton);
     expect(mockRefetch).toHaveBeenCalled();
+  });
+
+  it("should pass language option to useMetadataSearch for book content", () => {
+    render(
+      <MetadataSearchPanel
+        bookId={1}
+        initialQuery="The Hobbit"
+        contentType="book"
+      />
+    );
+
+    // Hook should be called with query, source, and options
+    // Default language is "any", so options should be undefined (no filter)
+    expect(useMetadataSearch).toHaveBeenCalledWith(
+      "The Hobbit",
+      "openlibrary",
+      undefined, // When language is "any", no options are passed
+    );
+  });
+
+  it("should not pass language option for manga content", () => {
+    render(
+      <MetadataSearchPanel
+        bookId={1}
+        initialQuery="Naruto"
+        contentType="manga"
+      />
+    );
+
+    // Manga content type should not include language options
+    expect(useMetadataSearch).toHaveBeenCalledWith(
+      "Naruto",
+      "anilist",
+      undefined,
+    );
   });
 });

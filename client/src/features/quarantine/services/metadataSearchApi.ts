@@ -1,6 +1,7 @@
 import type {
   MetadataSearchResult,
   MetadataSource,
+  MetadataSearchOptions,
   ApplyMetadataRequest,
   ApplyMetadataResponse,
 } from "@/features/quarantine/index";
@@ -10,11 +11,17 @@ const API_BASE = "/api/v1/metadata";
 export async function searchMetadata(
   query: string,
   source: MetadataSource,
+  options?: MetadataSearchOptions,
 ): Promise<MetadataSearchResult[]> {
   const url = new URL(`${API_BASE}/search`, window.location.origin);
 
   url.searchParams.set("query", query);
   url.searchParams.set("source", source);
+
+  // Add optional language parameter
+  if (options?.language) {
+    url.searchParams.set("language", options.language);
+  }
 
   const response = await fetch(url.toString(), {
     method: "GET",

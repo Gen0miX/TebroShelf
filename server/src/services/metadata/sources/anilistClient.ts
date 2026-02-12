@@ -131,14 +131,22 @@ query SearchManga($search: String!, $page: Int, $perPage: Int) {
 }
 `;
 
+export interface AniListSearchOptions {
+  language?: "fr" | "en" | "any";
+  volume?: number;
+}
+
 /**
  * Search AniList for manga by title.
+ * Note: AniList doesn't support language filtering or per-volume queries,
+ * but accepts options for consistency with other sources.
  */
 export async function searchManga(
   title: string,
+  options: AniListSearchOptions = {},
   perPage = 5,
 ): Promise<AniListMedia[]> {
-  logger.info("Searching AniList for manga", { context, title });
+  logger.info("Searching AniList for manga", { context, title, options });
 
   await rateLimiter.acquire();
 
@@ -296,6 +304,24 @@ export function getCoverUrl(
 
   // Prefer Largest image
   return coverImage.extraLarge || coverImage.large || coverImage.medium || null;
+}
+
+/**
+ * Get total volumes from AniList media.
+ */
+export function getTotalVolumes(media: AniListMedia): number | null {
+  return media.volumes;
+}
+
+/**
+ * Check if searched volume exceeds total volumes (potential mismatch).
+ */
+export function isVolumeMismatch(
+  media: AniListMedia,
+  searchedVolume?: number,
+): boolean {
+  if (!searchedVolume || !media.volumes) return false;
+  return searchedVolume > media.volumes;
 }
 
 /**

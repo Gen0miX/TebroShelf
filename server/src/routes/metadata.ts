@@ -27,6 +27,7 @@ const searchSchema = z.object({
     "myanimelist",
     "mangadex",
   ]),
+  language: z.enum(["fr", "en", "any"]).optional(),
 });
 
 const applySchema = z.object({
@@ -67,8 +68,9 @@ router.get("/search", async (req, res) => {
     });
   }
 
-  const { query, source } = parsed.data;
-  const results = await searchMetadata(query, source as MetadataSource);
+  const { query, source, language } = parsed.data;
+  const options = language ? { language } : {};
+  const results = await searchMetadata(query, source as MetadataSource, options);
 
   return res.json({ data: results });
 });

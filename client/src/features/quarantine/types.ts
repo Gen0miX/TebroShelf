@@ -59,6 +59,11 @@ export interface MetadataSearchResponse {
   data: MetadataSearchResult[];
 }
 
+export interface MetadataSearchOptions {
+  language?: "fr" | "en" | "any";
+  volume?: number;
+}
+
 export interface MetadataSourceResponse {
   data: MetadataSource[];
 }

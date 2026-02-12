@@ -86,7 +86,7 @@ describe("OpenLibrary Client", () => {
       ],
     });
 
-    const result = await searchByTitle("Harry Potter", "Rowling");
+    const result = await searchByTitle("Harry Potter", { author: "Rowling" });
 
     expect(result.length).toBe(2);
     expect(result[0].title).toBe("Book A");
@@ -208,5 +208,87 @@ describe("OpenLibrary Client", () => {
     const desc = await fetchWorkDescription("/works/OL000W");
 
     expect(desc).toBeNull();
+  });
+
+  // Story 3.15 — Language filtering tests
+  describe("Language filtering (Story 3.15)", () => {
+    it("filters results to French when language=fr", async () => {
+      mockFetchOnce({
+        numFound: 3,
+        docs: [
+          { key: "1", title: "French Book", language: ["fre"] },
+          { key: "2", title: "English Book", language: ["eng"] },
+          { key: "3", title: "French/English", language: ["fre", "eng"] },
+        ],
+      });
+
+      const results = await searchByTitle("Book", { language: "fr" });
+
+      expect(results.length).toBe(2);
+      expect(results.map((r) => r.title)).toContain("French Book");
+      expect(results.map((r) => r.title)).toContain("French/English");
+      expect(results.map((r) => r.title)).not.toContain("English Book");
+    });
+
+    it("filters results to English when language=en", async () => {
+      mockFetchOnce({
+        numFound: 3,
+        docs: [
+          { key: "1", title: "French Book", language: ["fre"] },
+          { key: "2", title: "English Book", language: ["eng"] },
+          { key: "3", title: "French/English", language: ["fre", "eng"] },
+        ],
+      });
+
+      const results = await searchByTitle("Book", { language: "en" });
+
+      expect(results.length).toBe(2);
+      expect(results.map((r) => r.title)).toContain("English Book");
+      expect(results.map((r) => r.title)).toContain("French/English");
+    });
+
+    it("returns all results when language=any", async () => {
+      mockFetchOnce({
+        numFound: 3,
+        docs: [
+          { key: "1", title: "French Book", language: ["fre"] },
+          { key: "2", title: "English Book", language: ["eng"] },
+          { key: "3", title: "German Book", language: ["ger"] },
+        ],
+      });
+
+      const results = await searchByTitle("Book", { language: "any" });
+
+      expect(results.length).toBe(3);
+    });
+
+    it("returns all results when no language option specified", async () => {
+      mockFetchOnce({
+        numFound: 2,
+        docs: [
+          { key: "1", title: "French Book", language: ["fre"] },
+          { key: "2", title: "English Book", language: ["eng"] },
+        ],
+      });
+
+      const results = await searchByTitle("Book");
+
+      expect(results.length).toBe(2);
+    });
+
+    it("handles books without language field during filtering", async () => {
+      mockFetchOnce({
+        numFound: 2,
+        docs: [
+          { key: "1", title: "French Book", language: ["fre"] },
+          { key: "2", title: "Unknown Language" }, // No language field
+        ],
+      });
+
+      const results = await searchByTitle("Book", { language: "fr" });
+
+      expect(results.length).toBe(1);
+      expect(results[0].title).toBe("French Book");
+    });
   });
 });

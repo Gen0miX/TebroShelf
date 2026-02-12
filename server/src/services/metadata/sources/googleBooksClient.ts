@@ -111,14 +111,20 @@ export async function searchByISBN(
   return response.items[0];
 }
 
+export interface GoogleBooksSearchOptions {
+  language?: "fr" | "en" | "any";
+  author?: string;
+}
+
 /**
  * Search Google Books by title and optionally author.
  */
 export async function searchByTitle(
   title: string,
-  author?: string,
+  options: GoogleBooksSearchOptions = {},
 ): Promise<GoogleBooksVolume[]> {
-  logger.info("Searching Google Books by title", { context, title, author });
+  const { author, language } = options;
+  logger.info("Searching Google Books by title", { context, title, author, language });
 
   await rateLimiter.acquire();
 
@@ -129,7 +135,13 @@ export async function searchByTitle(
     query += `+inauthor:${sanitizeQueryTerm(author)}`;
   }
 
-  const url = `${API_BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=5&printType=books`;
+  let url = `${API_BASE_URL}/volumes?q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=5&printType=books`;
+
+  // Add language restriction if specified
+  if (language && language !== "any") {
+    url += `&langRestrict=${language}`;
+    logger.info("Applying language restriction", { context, language });
+  }
 
   const response = await fetchWithRetry(url);
 

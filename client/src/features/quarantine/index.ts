@@ -24,6 +24,7 @@ export type {
   MetadataSearchResult,
   MetadataSource,
   MetadataSourceResponse,
+  MetadataSearchOptions,
   ApplyMetadataRequest,
   ApplyMetadataResponse,
   EditMetadataRequest,

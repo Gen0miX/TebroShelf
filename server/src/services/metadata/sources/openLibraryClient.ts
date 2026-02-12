@@ -59,14 +59,20 @@ export async function searchByISBN(
   return response.docs[0];
 }
 
+export interface OpenLibrarySearchOptions {
+  language?: "fr" | "en" | "any";
+  author?: string;
+}
+
 /**
  * Search OpenLibrary by title and optionally author.
  */
 export async function searchByTitle(
   title: string,
-  author?: string,
+  options: OpenLibrarySearchOptions = {},
 ): Promise<OpenLibraryBook[]> {
-  logger.info("Searching OpenLibrary by title", { context, title, author });
+  const { author, language } = options;
+  logger.info("Searching OpenLibrary by title", { context, title, author, language });
 
   await rateLimiter.acquire();
 
@@ -74,8 +80,9 @@ export async function searchByTitle(
   if (author) {
     query += `&author=${encodeURIComponent(author)}`;
   }
-
-  const url = `${API_BASE_URL}/search.json?${query}&fields=key,title,author_name,author_key,first_publish_year,cover_i,subject,isbn,publisher&limit=5`;
+  // Add language field to response for filtering
+  const fields = "key,title,author_name,author_key,first_publish_year,cover_i,subject,isbn,publisher,language";
+  const url = `${API_BASE_URL}/search.json?${query}&fields=${fields}&limit=10`;
 
   const response = await fetchWithRetry(url);
 
@@ -84,7 +91,24 @@ export async function searchByTitle(
     return [];
   }
 
-  return response.docs;
+  let results = response.docs;
+
+  // Filter by language if specified
+  if (language && language !== "any") {
+    const langCode = language === "fr" ? "fre" : "eng";
+    results = results.filter(
+      (book) => book.language && book.language.includes(langCode)
+    );
+    logger.info("Filtered results by language", {
+      context,
+      language,
+      langCode,
+      originalCount: response.docs.length,
+      filteredCount: results.length,
+    });
+  }
+
+  return results.slice(0, 5);
 }
 
 /**

@@ -22,6 +22,32 @@ export interface ScanCompletedPayload {
   duration: number;
 }
 
+export interface EnrichmentStartedPayload {
+  bookId: number;
+  step: "started";
+  details?: {
+    contentType?: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface EnrichmentProgressPayload {
+  bookId: number;
+  step: string;
+  details?: Record<string, unknown>;
+}
+
+export interface EnrichmentCompletedPayload {
+  bookId: number;
+  step: "completed";
+  details?: {
+    source?: string;
+    fieldsUpdated?: string[];
+    contentType?: string;
+    [key: string]: unknown;
+  };
+}
+
 export interface EnrichmentFailedPayload {
   bookId: number;
   failureReason: string;
@@ -38,6 +64,9 @@ export interface BookUpdatedPayload {
 export type WebSocketEventType =
   | "file.detected"
   | "scan.completed"
+  | "enrichment.started"
+  | "enrichment.progress"
+  | "enrichment.completed"
   | "enrichment.failed"
   | "book.updated";
 
@@ -51,6 +80,24 @@ export function isScanCompletedMessage(
   message: WebSocketMessage,
 ): message is WebSocketMessage<ScanCompletedPayload> {
   return message.type === "scan.completed";
+}
+
+export function isEnrichmentStartedMessage(
+  message: WebSocketMessage,
+): message is WebSocketMessage<EnrichmentStartedPayload> {
+  return message.type === "enrichment.started";
+}
+
+export function isEnrichmentProgressMessage(
+  message: WebSocketMessage,
+): message is WebSocketMessage<EnrichmentProgressPayload> {
+  return message.type === "enrichment.progress";
+}
+
+export function isEnrichmentCompletedMessage(
+  message: WebSocketMessage,
+): message is WebSocketMessage<EnrichmentCompletedPayload> {
+  return message.type === "enrichment.completed";
 }
 
 export function isEnrichmentFailedMessage(

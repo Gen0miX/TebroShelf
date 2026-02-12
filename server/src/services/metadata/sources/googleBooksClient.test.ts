@@ -88,10 +88,9 @@ describe("GoogleBooksClient", () => {
       json: async () => mockResponse,
     });
 
-    const results = await googleBooksClient.searchByTitle(
-      "Clean Code",
-      "Robert Martin",
-    );
+    const results = await googleBooksClient.searchByTitle("Clean Code", {
+      author: "Robert Martin",
+    });
 
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining(
@@ -224,7 +223,9 @@ describe("GoogleBooksClient", () => {
       json: async () => ({ totalItems: 0 }),
     });
 
-    await googleBooksClient.searchByTitle("C++: The Good Parts", "Author");
+    await googleBooksClient.searchByTitle("C++: The Good Parts", {
+      author: "Author",
+    });
 
     const calledUrl = (fetch as any).mock.calls[0][0] as string;
     // Colons and plus signs should be replaced with spaces
@@ -245,5 +246,64 @@ describe("GoogleBooksClient", () => {
     ).rejects.toThrowErrorMatchingInlineSnapshot(
       `[Error: GOOGLE_BOOKS_API_KEY environment variable is not set]`,
     );
+  });
+
+  // Story 3.15 - Language filtering tests
+  describe("Language filtering (Story 3.15)", () => {
+    it("should add langRestrict=fr when language is fr", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ totalItems: 0, items: [] }),
+      });
+
+      await googleBooksClient.searchByTitle("One Piece", { language: "fr" });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("langRestrict=fr"),
+        expect.any(Object),
+      );
+    });
+
+    it("should add langRestrict=en when language is en", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ totalItems: 0, items: [] }),
+      });
+
+      await googleBooksClient.searchByTitle("Naruto", { language: "en" });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("langRestrict=en"),
+        expect.any(Object),
+      );
+    });
+
+    it("should not add langRestrict when language is any", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ totalItems: 0, items: [] }),
+      });
+
+      await googleBooksClient.searchByTitle("Bleach", { language: "any" });
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.not.stringContaining("langRestrict"),
+        expect.any(Object),
+      );
+    });
+
+    it("should not add langRestrict when no language specified", async () => {
+      (fetch as any).mockResolvedValue({
+        ok: true,
+        json: async () => ({ totalItems: 0, items: [] }),
+      });
+
+      await googleBooksClient.searchByTitle("Dragon Ball");
+
+      expect(fetch).toHaveBeenCalledWith(
+        expect.not.stringContaining("langRestrict"),
+        expect.any(Object),
+      );
+    });
   });
 });

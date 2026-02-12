@@ -30,7 +30,7 @@ export const MetadataSearchResult: React.FC<MetadataSearchResultProps> = ({
   result,
   onSelect,
 }) => {
-  const { title, author, coverUrl, source } = result;
+  const { title, author, coverUrl, source, volume } = result;
   const [isImageLoading, setIsImageLoading] = useState(true);
 
   const handleClick = () => {
@@ -88,13 +88,21 @@ export const MetadataSearchResult: React.FC<MetadataSearchResultProps> = ({
             )}
           </div>
 
-          <div>
+          <div className="flex gap-1.5 items-center">
             <Badge
               variant="secondary"
               className={`text-[10px] px-1.5 py-0 h-4 border-none font-medium capitalize ${sourceColors[source] || ""}`}
             >
               {sourceLabels[source] || source}
             </Badge>
+            {volume != null && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 h-4 font-medium"
+              >
+                Vol. {volume}
+              </Badge>
+            )}
           </div>
         </div>
       </div>

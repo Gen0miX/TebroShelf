@@ -16,6 +16,7 @@ import { MetadataSearchResult } from "./MetadataSearchResult";
 import type {
   MetadataSearchResult as MetadataSearchResultType,
   MetadataSource,
+  MetadataSearchOptions,
 } from "../types";
 
 interface MetadataSearchPanelProps {
@@ -33,6 +34,14 @@ const sourceLabels: Record<string, string> = {
   mangadex: "MangaDex",
 };
 
+type LanguageOption = "fr" | "en" | "any";
+
+const languageLabels: Record<LanguageOption, string> = {
+  fr: "Français",
+  en: "English",
+  any: "All languages",
+};
+
 const BOOK_SOURCES = ["openlibrary", "googlebooks"];
 const MANGA_SOURCES = ["anilist", "myanimelist", "mangadex"];
 
@@ -46,16 +55,22 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
   const [source, setSource] = useState<MetadataSource>(
     contentType === "manga" ? "anilist" : "openlibrary",
   );
+  const [language, setLanguage] = useState<LanguageOption>("any");
 
   const { data: availableSources, isLoading: isLoadingSources } =
     useAvailableSources();
+
+  // Build search options
+  const searchOptions: MetadataSearchOptions | undefined =
+    contentType === "book" && language !== "any" ? { language } : undefined;
+
   const {
     data: results,
     isLoading: isSearching,
     isError,
     refetch,
     isFetched,
-  } = useMetadataSearch(query, source);
+  } = useMetadataSearch(query, source, searchOptions);
 
   // Filter sources based on content type
   const filteredSources = availableSources?.filter((src) => {
@@ -124,6 +139,23 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
             ))}
           </SelectContent>
         </Select>
+
+        {/* Language filter - only for book sources */}
+        {contentType === "book" && (
+          <Select
+            value={language}
+            onValueChange={(value) => setLanguage(value as LanguageOption)}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Language" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">{languageLabels.any}</SelectItem>
+              <SelectItem value="fr">{languageLabels.fr}</SelectItem>
+              <SelectItem value="en">{languageLabels.en}</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         <Button type="submit" disabled={isSearching || !query.trim()}>
           <Search className="w-4 h-4 mr-2" />

@@ -40,7 +40,7 @@ vi.mock("../../utils/logger", () => ({
 describe("metadataSearchService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Default config mock
     vi.mocked(getScrapingConfig).mockReturnValue({
       openLibrary: {} as any,
@@ -51,6 +51,8 @@ describe("metadataSearchService", () => {
     });
 
     vi.mocked(gbClient.isConfigured).mockReturnValue(true);
+    vi.mocked(alClient.getTotalVolumes).mockReturnValue(null);
+    vi.mocked(mdClient.getVolumeCover).mockResolvedValue(null);
   });
 
   describe("getAvailableSources", () => {
@@ -96,7 +98,7 @@ describe("metadataSearchService", () => {
 
       const results = await searchMetadata("one piece", "openlibrary");
 
-      expect(olClient.searchByTitle).toHaveBeenCalledWith("one piece");
+      expect(olClient.searchByTitle).toHaveBeenCalledWith("one piece", {});
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
         sourceId: "/works/OL123",
@@ -129,7 +131,7 @@ describe("metadataSearchService", () => {
 
       const results = await searchMetadata("harry potter", "googlebooks");
 
-      expect(gbClient.searchByTitle).toHaveBeenCalledWith("harry potter");
+      expect(gbClient.searchByTitle).toHaveBeenCalledWith("harry potter", {});
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
         sourceId: "gb123",
@@ -160,7 +162,7 @@ describe("metadataSearchService", () => {
 
       const results = await searchMetadata("naruto", "anilist");
 
-      expect(alClient.searchManga).toHaveBeenCalledWith("naruto");
+      expect(alClient.searchManga).toHaveBeenCalledWith("naruto", {});
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({
         title: "Naruto",
@@ -222,12 +224,85 @@ describe("metadataSearchService", () => {
         vi.mocked(mdClient.getAuthorName).mockReturnValue("ONE");
         vi.mocked(mdClient.getCoverFileName).mockReturnValue("cover.jpg");
         vi.mocked(mdClient.buildCoverUrl).mockReturnValue("http://cover.com/md.jpg");
+        vi.mocked(mdClient.getVolumeCover).mockResolvedValue(null);
 
         const results = await searchMetadata("one punch", "mangadex");
 
-        expect(mdClient.searchManga).toHaveBeenCalledWith("one punch");
+        expect(mdClient.searchManga).toHaveBeenCalledWith("one punch", {});
         expect(results[0].title).toBe("One Punch Man");
         expect(results[0].author).toBe("ONE");
+    });
+
+    it("extracts volume from query and includes in results (Story 3.15)", async () => {
+      const mockOlBook = {
+        key: "/works/OL123",
+        title: "One Piece",
+        author_name: ["Eiichiro Oda"],
+        first_publish_year: 1997,
+      };
+
+      vi.mocked(olClient.searchByTitle).mockResolvedValue([mockOlBook as any]);
+      vi.mocked(olClient.getCoverUrl).mockReturnValue(null);
+
+      // Search with volume in title (French pattern "T05")
+      const results = await searchMetadata("One Piece T05", "openlibrary");
+
+      // Should search with clean title (without volume) and volume option
+      expect(olClient.searchByTitle).toHaveBeenCalledWith("One Piece", {
+        volume: 5,
+      });
+      // Result should include the extracted volume
+      expect(results[0].volume).toBe(5);
+    });
+
+    it("uses explicitly passed volume over parsed volume (Story 3.15)", async () => {
+      const mockOlBook = {
+        key: "/works/OL456",
+        title: "Naruto",
+        author_name: ["Masashi Kishimoto"],
+      };
+
+      vi.mocked(olClient.searchByTitle).mockResolvedValue([mockOlBook as any]);
+      vi.mocked(olClient.getCoverUrl).mockReturnValue(null);
+
+      // Search with volume in title BUT also explicit volume option
+      const results = await searchMetadata("Naruto T10", "openlibrary", {
+        volume: 7,
+      });
+
+      // Should use explicit volume over parsed
+      expect(olClient.searchByTitle).toHaveBeenCalledWith("Naruto", {
+        volume: 7,
+      });
+      expect(results[0].volume).toBe(7);
+    });
+
+    it("fetches volume-specific cover for MangaDex when volume is provided (Story 3.15)", async () => {
+      const mockMdManga = {
+        id: "md-vol-test",
+        attributes: {
+          title: { en: "Test Manga" },
+          description: { en: "Test" },
+          year: 2020,
+          tags: [],
+        },
+        relationships: [],
+      };
+
+      vi.mocked(mdClient.searchManga).mockResolvedValue([mockMdManga as any]);
+      vi.mocked(mdClient.getLocalizedString).mockReturnValue("Test Manga");
+      vi.mocked(mdClient.getAuthorName).mockReturnValue("Test Author");
+      vi.mocked(mdClient.getCoverFileName).mockReturnValue("series-cover.jpg");
+      vi.mocked(mdClient.buildCoverUrl).mockReturnValue("http://cover.com/series.jpg");
+      vi.mocked(mdClient.getVolumeCover).mockResolvedValue("http://cover.com/vol-5.jpg");
+
+      const results = await searchMetadata("Test Manga T05", "mangadex");
+
+      // Should attempt to get volume-specific cover
+      expect(mdClient.getVolumeCover).toHaveBeenCalledWith("md-vol-test", 5);
+      // Should use the volume-specific cover URL
+      expect(results[0].coverUrl).toBe("http://cover.com/vol-5.jpg");
+      expect(results[0].volume).toBe(5);
     });
   });
 });

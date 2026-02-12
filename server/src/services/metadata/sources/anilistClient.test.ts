@@ -674,4 +674,55 @@ describe("AniListClient", () => {
     expect(result.length).toBe(1);
     expect(result[0].title.romaji).toBe("After HTTP 429");
   });
+
+  // Story 3.15 — Volume helper functions
+  describe("Volume helpers (Story 3.15)", () => {
+    const createMockMedia = (volumes: number | null): AniListMedia => ({
+      id: 1,
+      title: { romaji: "Test", english: null, native: null },
+      description: null,
+      genres: [],
+      coverImage: null,
+      status: null,
+      volumes,
+      chapters: null,
+      format: null,
+      staff: null,
+      startDate: null,
+      synonyms: [],
+      averageScore: null,
+    });
+
+    it("should return total volumes from media", () => {
+      const media = createMockMedia(10);
+      expect(anilistClient.getTotalVolumes(media)).toBe(10);
+    });
+
+    it("should return null when volumes is null", () => {
+      const media = createMockMedia(null);
+      expect(anilistClient.getTotalVolumes(media)).toBeNull();
+    });
+
+    it("should detect volume mismatch when searched volume > total", () => {
+      const media = createMockMedia(10);
+      expect(anilistClient.isVolumeMismatch(media, 15)).toBe(true);
+    });
+
+    it("should not detect mismatch when searched volume <= total", () => {
+      const media = createMockMedia(10);
+      expect(anilistClient.isVolumeMismatch(media, 5)).toBe(false);
+      expect(anilistClient.isVolumeMismatch(media, 10)).toBe(false);
+    });
+
+    it("should not detect mismatch when total volumes is null", () => {
+      const media = createMockMedia(null);
+      expect(anilistClient.isVolumeMismatch(media, 5)).toBe(false);
+    });
+
+    it("should not detect mismatch when no searched volume", () => {
+      const media = createMockMedia(10);
+      expect(anilistClient.isVolumeMismatch(media)).toBe(false);
+      expect(anilistClient.isVolumeMismatch(media, undefined)).toBe(false);
+    });
+  });
 });

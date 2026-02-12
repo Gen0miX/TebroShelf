@@ -62,7 +62,7 @@ describe("Metadata Routes", () => {
 
       expect(response.status).toBe(200);
       expect(response.body.data).toEqual(mockResults);
-      expect(searchMetadata).toHaveBeenCalledWith("test", "openlibrary");
+      expect(searchMetadata).toHaveBeenCalledWith("test", "openlibrary", {});
     });
 
     it("should return 400 if query is missing (Task 3.10)", async () => {
@@ -99,6 +99,59 @@ describe("Metadata Routes", () => {
         .query({ query: "test", source: "openlibrary" });
 
       expect(response.status).toBe(401);
+    });
+
+    it("should pass language parameter to searchMetadata (Story 3.15)", async () => {
+      const mockResults = [{ title: "Test Book", source: "openlibrary" }];
+      vi.mocked(searchMetadata).mockResolvedValue(mockResults as any);
+
+      const response = await request(app)
+        .get("/api/v1/metadata/search")
+        .query({ query: "test", source: "openlibrary", language: "fr" })
+        .set("x-mock-user", JSON.stringify(mockAdminUser));
+
+      expect(response.status).toBe(200);
+      expect(searchMetadata).toHaveBeenCalledWith("test", "openlibrary", {
+        language: "fr",
+      });
+    });
+
+    it("should accept 'any' as language value (Story 3.15)", async () => {
+      const mockResults = [{ title: "Test Book", source: "openlibrary" }];
+      vi.mocked(searchMetadata).mockResolvedValue(mockResults as any);
+
+      const response = await request(app)
+        .get("/api/v1/metadata/search")
+        .query({ query: "test", source: "openlibrary", language: "any" })
+        .set("x-mock-user", JSON.stringify(mockAdminUser));
+
+      expect(response.status).toBe(200);
+      expect(searchMetadata).toHaveBeenCalledWith("test", "openlibrary", {
+        language: "any",
+      });
+    });
+
+    it("should work without language parameter (Story 3.15)", async () => {
+      const mockResults = [{ title: "Test Book", source: "openlibrary" }];
+      vi.mocked(searchMetadata).mockResolvedValue(mockResults as any);
+
+      const response = await request(app)
+        .get("/api/v1/metadata/search")
+        .query({ query: "test", source: "openlibrary" })
+        .set("x-mock-user", JSON.stringify(mockAdminUser));
+
+      expect(response.status).toBe(200);
+      expect(searchMetadata).toHaveBeenCalledWith("test", "openlibrary", {});
+    });
+
+    it("should reject invalid language values (Story 3.15)", async () => {
+      const response = await request(app)
+        .get("/api/v1/metadata/search")
+        .query({ query: "test", source: "openlibrary", language: "invalid" })
+        .set("x-mock-user", JSON.stringify(mockAdminUser));
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
     });
   });
 

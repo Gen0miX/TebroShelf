@@ -57,11 +57,41 @@ export interface MangaDexSearchResponse {
   total: number;
 }
 
+export interface MangaDexCoverAttributes {
+  volume: string | null;
+  fileName: string;
+  description: string | null;
+  locale: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MangaDexCover {
+  id: string;
+  type: "cover_art";
+  attributes: MangaDexCoverAttributes;
+  relationships: MangaDexRelationship[];
+}
+
+export interface MangaDexCoverResponse {
+  result: "ok" | "error";
+  response: "collection";
+  data: MangaDexCover[];
+  limit: number;
+  offset: number;
+  total: number;
+}
+
 // Rate limiter: 5 requests per second
 const rateLimiter = new RateLimiter({
   maxTokens: 5,
   refillIntervalMs: 1000,
 });
+
+export interface MangaDexSearchOptions {
+  language?: "fr" | "en" | "any";
+  volume?: number;
+}
 
 /**
  * Search MangaDex for manga by title.
@@ -69,11 +99,13 @@ const rateLimiter = new RateLimiter({
  */
 export async function searchManga(
   title: string,
+  options: MangaDexSearchOptions = {},
   limit = 5,
 ): Promise<MangaDexManga[]> {
   const config = getScrapingConfig().mangaDex;
+  const { volume } = options;
 
-  logger.info("Searching MangaDex for manga", { context, title });
+  logger.info("Searching MangaDex for manga", { context, title, options });
 
   await rateLimiter.acquire();
 
@@ -96,6 +128,92 @@ export async function searchManga(
   }
 
   return response.data;
+}
+
+/**
+ * Fetch volume-specific cover for a manga.
+ * MangaDex API requires fetching all covers and filtering client-side.
+ * Falls back to null if no volume-specific cover exists.
+ */
+export async function getVolumeCover(
+  mangaId: string,
+  volume: number,
+): Promise<string | null> {
+  const config = getScrapingConfig().mangaDex;
+
+  logger.info("Fetching MangaDex volume cover", { context, mangaId, volume });
+
+  await rateLimiter.acquire();
+
+  // MangaDex API doesn't support volume[] filter properly, so we fetch all covers
+  // for the manga and filter client-side
+  const url = new URL(`${config.baseUrl}/cover`);
+  url.searchParams.append("manga[]", mangaId);
+  url.searchParams.set("limit", "100"); // Get enough covers to find our volume
+  url.searchParams.set("order[volume]", "asc");
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.searchTimeout);
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "User-Agent": config.userAgent,
+        Accept: "application/json",
+      },
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      logger.warn("MangaDex cover fetch failed", {
+        context,
+        mangaId,
+        volume,
+        status: response.status,
+      });
+      return null;
+    }
+
+    const data = (await response.json()) as MangaDexCoverResponse;
+
+    if (data.data && data.data.length > 0) {
+      // Filter covers to find the one matching the requested volume
+      // Volume can be stored as "2" or "02" in the API
+      const volumeStr = String(volume);
+      const volumePadded = volume.toString().padStart(2, "0");
+
+      const matchingCover = data.data.find((cover) => {
+        const coverVolume = cover.attributes.volume;
+        if (!coverVolume) return false;
+        return coverVolume === volumeStr || coverVolume === volumePadded;
+      });
+
+      if (matchingCover) {
+        const coverFileName = matchingCover.attributes.fileName;
+        logger.info("Found volume-specific cover", {
+          context,
+          mangaId,
+          volume,
+          fileName: coverFileName,
+        });
+        return buildCoverUrl(mangaId, coverFileName);
+      }
+    }
+
+    logger.info("No volume-specific cover found", { context, mangaId, volume });
+    return null;
+  } catch (err) {
+    logger.warn("MangaDex cover fetch error", {
+      context,
+      mangaId,
+      volume,
+      error: err,
+    });
+    return null;
+  }
 }
 
 /**
