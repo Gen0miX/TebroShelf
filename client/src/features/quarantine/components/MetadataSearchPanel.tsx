@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -9,15 +9,19 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import { Search, AlertCircle, Inbox } from "lucide-react";
+import { Badge } from "@/shared/components/ui/badge";
+import { Search, AlertCircle, Inbox, BookOpen } from "lucide-react";
 import { useAvailableSources } from "../hooks/useAvailableSources";
 import { useMetadataSearch } from "../hooks/useMetadataSearch";
 import { MetadataSearchResult } from "./MetadataSearchResult";
+import { extractVolumeFromTitle } from "../utils/titleParser";
 import type {
   MetadataSearchResult as MetadataSearchResultType,
   MetadataSource,
   MetadataSearchOptions,
 } from "../types";
+
+const LANGUAGE_STORAGE_KEY = "tebroshelf:metadata-search-language";
 
 interface MetadataSearchPanelProps {
   bookId: number;
@@ -55,7 +59,31 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
   const [source, setSource] = useState<MetadataSource>(
     contentType === "manga" ? "anilist" : "openlibrary",
   );
-  const [language, setLanguage] = useState<LanguageOption>("any");
+
+  // Load language preference from localStorage
+  const [language, setLanguage] = useState<LanguageOption>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (stored === "fr" || stored === "en" || stored === "any") {
+        return stored;
+      }
+    }
+    return "any";
+  });
+
+  // Extract volume from query for immediate UI feedback
+  const { cleanTitle, volume: detectedVolume } = useMemo(
+    () => extractVolumeFromTitle(query),
+    [query]
+  );
+
+  // Persist language preference to localStorage
+  const handleLanguageChange = (value: LanguageOption) => {
+    setLanguage(value);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, value);
+    }
+  };
 
   const { data: availableSources, isLoading: isLoadingSources } =
     useAvailableSources();
@@ -144,7 +172,7 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
         {contentType === "book" && (
           <Select
             value={language}
-            onValueChange={(value) => setLanguage(value as LanguageOption)}
+            onValueChange={(value) => handleLanguageChange(value as LanguageOption)}
           >
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Language" />
@@ -162,6 +190,20 @@ export const MetadataSearchPanel: React.FC<MetadataSearchPanelProps> = ({
           Search
         </Button>
       </form>
+
+      {/* Volume detection indicator */}
+      {detectedVolume !== null && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <BookOpen className="w-4 h-4" />
+          <span>Volume detected:</span>
+          <Badge variant="secondary" className="text-xs">
+            Vol. {detectedVolume}
+          </Badge>
+          <span className="text-xs">
+            (searching for "{cleanTitle}")
+          </span>
+        </div>
+      )}
 
       {/* Results Area */}
       <div className="flex-1 overflow-y-auto min-h-0 pt-2">

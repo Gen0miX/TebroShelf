@@ -255,4 +255,97 @@ describe("MetadataSearchPanel", () => {
       undefined,
     );
   });
+
+  describe("volume detection", () => {
+    it("should display volume detection badge when title contains volume", () => {
+      render(
+        <MetadataSearchPanel
+          bookId={1}
+          initialQuery="One Piece T01"
+          contentType="manga"
+        />
+      );
+
+      expect(screen.getByText("Volume detected:")).toBeInTheDocument();
+      expect(screen.getByText("Vol. 1")).toBeInTheDocument();
+      expect(screen.getByText('(searching for "One Piece")')).toBeInTheDocument();
+    });
+
+    it("should not display volume detection when title has no volume", () => {
+      render(
+        <MetadataSearchPanel
+          bookId={1}
+          initialQuery="Harry Potter"
+          contentType="book"
+        />
+      );
+
+      expect(screen.queryByText("Volume detected:")).not.toBeInTheDocument();
+    });
+
+    it("should update volume detection when query changes", () => {
+      const { rerender } = render(
+        <MetadataSearchPanel
+          bookId={1}
+          initialQuery="Harry Potter"
+          contentType="book"
+        />
+      );
+
+      expect(screen.queryByText("Volume detected:")).not.toBeInTheDocument();
+
+      // Simulate user typing a volume-containing query
+      const input = screen.getByPlaceholderText(/search by title/i);
+      fireEvent.change(input, { target: { value: "Naruto Vol. 5" } });
+
+      expect(screen.getByText("Volume detected:")).toBeInTheDocument();
+      expect(screen.getByText("Vol. 5")).toBeInTheDocument();
+    });
+  });
+
+  describe("language persistence", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("should persist language preference to localStorage", () => {
+      render(
+        <MetadataSearchPanel
+          bookId={1}
+          initialQuery="The Hobbit"
+          contentType="book"
+        />
+      );
+
+      // Get language selector (second combobox)
+      const comboboxes = screen.getAllByRole("combobox");
+      const languageSelect = comboboxes[1];
+
+      // Click to open
+      fireEvent.click(languageSelect);
+
+      // Select French - use getAllByText and pick the option element
+      const frenchOptions = screen.getAllByText("Fran\u00e7ais");
+      // The dropdown content option is in a portal, click the last one (the actual option)
+      fireEvent.click(frenchOptions[frenchOptions.length - 1]);
+
+      // Verify localStorage was updated
+      expect(localStorage.getItem("tebroshelf:metadata-search-language")).toBe("fr");
+    });
+
+    it("should load language preference from localStorage", () => {
+      localStorage.setItem("tebroshelf:metadata-search-language", "fr");
+
+      render(
+        <MetadataSearchPanel
+          bookId={1}
+          initialQuery="The Hobbit"
+          contentType="book"
+        />
+      );
+
+      const comboboxes = screen.getAllByRole("combobox");
+      expect(comboboxes[1]).toHaveTextContent("Fran\u00e7ais");
+    });
+  });
 });

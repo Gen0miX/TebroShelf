@@ -26,12 +26,24 @@ const sourceLabels: Record<string, string> = {
   mangadex: "MangaDex",
 };
 
+const languageLabels: Record<string, string> = {
+  fr: "FR",
+  fre: "FR",
+  en: "EN",
+  eng: "EN",
+  ja: "JP",
+  jpn: "JP",
+};
+
 export const MetadataSearchResult: React.FC<MetadataSearchResultProps> = ({
   result,
   onSelect,
 }) => {
-  const { title, author, coverUrl, source, volume } = result;
+  const { title, author, coverUrl, source, volume, language } = result;
   const [isImageLoading, setIsImageLoading] = useState(true);
+
+  // Get display label for language
+  const languageLabel = language ? languageLabels[language.toLowerCase()] || language.toUpperCase().slice(0, 2) : null;
 
   const handleClick = () => {
     if (onSelect) {
@@ -95,6 +107,14 @@ export const MetadataSearchResult: React.FC<MetadataSearchResultProps> = ({
             >
               {sourceLabels[source] || source}
             </Badge>
+            {languageLabel && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0 h-4 font-medium"
+              >
+                {languageLabel}
+              </Badge>
+            )}
             {volume != null && (
               <Badge
                 variant="outline"

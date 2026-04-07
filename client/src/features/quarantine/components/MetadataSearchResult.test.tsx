@@ -96,4 +96,59 @@ describe("MetadataSearchResult", () => {
 
     expect(screen.queryByText(/Vol\./)).not.toBeInTheDocument();
   });
+
+  describe("language badge", () => {
+    it("should display FR badge when language is fr", () => {
+      const resultWithFrench = { ...mockResult, language: "fr" };
+      render(<MetadataSearchResult result={resultWithFrench} />);
+
+      expect(screen.getByText("FR")).toBeInTheDocument();
+    });
+
+    it("should display FR badge when language is fre (ISO 639-2)", () => {
+      const resultWithFrench = { ...mockResult, language: "fre" };
+      render(<MetadataSearchResult result={resultWithFrench} />);
+
+      expect(screen.getByText("FR")).toBeInTheDocument();
+    });
+
+    it("should display EN badge when language is en", () => {
+      const resultWithEnglish = { ...mockResult, language: "en" };
+      render(<MetadataSearchResult result={resultWithEnglish} />);
+
+      expect(screen.getByText("EN")).toBeInTheDocument();
+    });
+
+    it("should display EN badge when language is eng (ISO 639-2)", () => {
+      const resultWithEnglish = { ...mockResult, language: "eng" };
+      render(<MetadataSearchResult result={resultWithEnglish} />);
+
+      expect(screen.getByText("EN")).toBeInTheDocument();
+    });
+
+    it("should display JP badge when language is ja", () => {
+      const resultWithJapanese = { ...mockResult, language: "ja" };
+      render(<MetadataSearchResult result={resultWithJapanese} />);
+
+      expect(screen.getByText("JP")).toBeInTheDocument();
+    });
+
+    it("should not display language badge when language is null", () => {
+      const resultWithoutLanguage = { ...mockResult, language: null };
+      render(<MetadataSearchResult result={resultWithoutLanguage} />);
+
+      // Should only have the source badge (OpenLibrary), not FR/EN/JP
+      expect(screen.queryByText("FR")).not.toBeInTheDocument();
+      expect(screen.queryByText("EN")).not.toBeInTheDocument();
+      expect(screen.queryByText("JP")).not.toBeInTheDocument();
+    });
+
+    it("should not display language badge when language is undefined", () => {
+      render(<MetadataSearchResult result={mockResult} />);
+
+      // mockResult has no language field
+      expect(screen.queryByText("FR")).not.toBeInTheDocument();
+      expect(screen.queryByText("EN")).not.toBeInTheDocument();
+    });
+  });
 });
